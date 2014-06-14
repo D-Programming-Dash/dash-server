@@ -1,0 +1,6 @@
+# Make sure SSL certs are not accidentally comitted.
+config/*.crt
+config/*.key
+
+.dub
+index.html

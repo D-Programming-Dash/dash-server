@@ -1,0 +1,38 @@
+extends layout
+
+block title
+   - auto title = "Choose Revisions to Compare";
+
+block body
+   - void revisionChooser(string id, size_t selectedDateIdx)
+      .form-group
+         label.col-sm-3.control-label(for="#{id}_compiler") Compiler
+         .col-sm-9
+            select.form-control(name="#{id}_compiler", id="#{id}_compiler")
+               - foreach (name; compilerNames)
+                  option = name
+      .form-group
+         label.col-sm-3.control-label(for="#{id}_revision") Revision
+         .col-sm-9
+            select.form-control(name="#{id}_revision", id="#{id}_revision")
+               - foreach (i, date; ["Current", "Previous", "1 day ago", "1 week ago", "1 month ago", "1 year ago"])
+                  option(selected=(i == selectedDateIdx)) = date
+
+   .container
+      h2 Choose Revisions to Compare
+      form.form-horizontal(role="form", method="POST", action="#{req.rootDir}compare")
+         .row
+            .col-sm-6
+               fieldset.panel.panel-default
+                  .panel-heading
+                     h3.panel-title Comparison Base
+                  .panel-body
+                     - revisionChooser("base", 0);
+            .col-sm-6
+               fieldset.panel.panel-default
+                  .panel-heading
+                     h3.panel-title Comparison Target
+                  .panel-body
+                     - revisionChooser("target", 1);
+         .row
+            button(type="submit", class="btn btn-primary center-block") Compare »

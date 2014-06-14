@@ -1,0 +1,7 @@
+{
+    "mongoDBHost": "127.0.0.1",
+    "mongoDBDatabase": "dash",
+    "caCertPath": "dash-rootca.crt",
+    "certPath": "dash-server.crt",
+    "privateKeyPath": "dash-server.key"
+}

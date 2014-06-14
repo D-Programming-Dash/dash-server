@@ -1,0 +1,20 @@
+extends layout
+
+block title
+   - auto title = "Dash";
+
+block body
+   .jumbotron
+      .container
+         h1 Welcome to Dash!
+         p Dash is a continuous integration-style tool for monitoring compile-time and run-time performance of different D compilers. It tracks speed, memory usage and file size, and allows for comparing specific compiler revisions as well as displaying measurements over time.
+   .container
+      .row
+         .col-sm-4
+            h3 Compare Two Revisions
+            p
+               a.btn.btn-default(href="#{req.rootDir}compare", role="button") Choose revisions &raquo;
+         .col-sm-4
+            h3 Track Single Benchmark
+            p
+               a.btn.btn-default(href="#", role="button") Choose benchmark &raquo;

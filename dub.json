@@ -1,0 +1,11 @@
+{
+    "name": "dash-server",
+    "description": "Server for the Dash D compiler performance tracker.",
+    "copyright": "Copyright © 2014, David Nadlinger",
+    "authors": ["klickverbot"],
+    "dependencies": {
+        "vibe-d": "~master",
+        "thrift": "~master"
+    },
+    "versions": ["VibeDefaultMain"]
+}
