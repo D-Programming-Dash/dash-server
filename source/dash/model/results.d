@@ -12,11 +12,11 @@ class Results {
     }
 
     string[] machineNames() {
-        return _db.machines.find(null, ["name": 1]).map!(a => a["name"].get!string).array;
+        return _db.machines.find(Bson.emptyObject, ["name": 1]).map!(a => a["name"].get!string).array;
     }
 
     string[] compilerNames() {
-        return _db.compilers.find(null, ["name": 1]).map!(a => a["name"].get!string).array;
+        return _db.compilers.find(Bson.emptyObject, ["name": 1]).map!(a => a["name"].get!string).array;
     }
 
 private:
