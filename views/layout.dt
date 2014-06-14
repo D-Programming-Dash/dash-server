@@ -22,7 +22,7 @@ html
                   .form-group
                      label Machine name:
                      .btn-group
-                        button#machine_name_dropdown(type="button", class="btn btn-default dropdown-toggle", data-toggle="dropdown") = machineNames[0]
+                        button#machine_name_dropdown(type="button", class="btn btn-default dropdown-toggle", data-toggle="dropdown") = machineNames.empty ? "<none>" : machineNames[0]
                            span.caret
                         ul.dropdown-menu.pull-right(role="menu", aria-labelledby="machine_name_dropdown")
                            - foreach (name; machineNames)
