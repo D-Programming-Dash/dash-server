@@ -114,8 +114,8 @@ class Scheduler {
         enforceValidName(machineName);
 
         // Check whether there is still something in the queue for the machine.
-        auto pendingBenchmarks = _db.pendingBenchmarksCollection(machineName);
-        auto compilerVersions = _db.compilerVersionsCollection(machineName);
+        auto pendingBenchmarks = _db.pendingBenchmarks(machineName);
+        auto compilerVersions = _db.compilerVersions(machineName);
         auto unattempted = pendingBenchmarks.findOne(["attempted": false]);
         if (!unattempted.isNull) {
             auto toExecute = unattempted.deserializeBson!(db.PendingBenchmark);
@@ -321,7 +321,7 @@ class Scheduler {
                 result.samples[phase.name ~ '.' ~ name] = values;
             }
             result.envData = apiResult.testEnvData;
-            _db.resultsCollection(machineName).insert(result);
+            _db.results(machineName).insert(result);
         }
         markPendingBenchmarkFinished(machineName, apiResult.taskId);
     }
@@ -350,7 +350,7 @@ private:
     }
 
     db.PendingBenchmark pendingBenchmarkById(string machineName, BsonObjectID pendingId) {
-        return _db.pendingBenchmarksCollection(machineName).findOne(
+        return _db.pendingBenchmarks(machineName).findOne(
             ["_id": pendingId]).deserializeBson!(db.PendingBenchmark);
     }
 
@@ -392,7 +392,7 @@ private:
 
     void markPendingBenchmarkFinished(string machineName, string taskId) {
         auto id = BsonObjectID.fromString(taskId);
-        auto pending = _db.pendingBenchmarksCollection(machineName);
+        auto pending = _db.pendingBenchmarks(machineName);
 
         auto cmd = Bson.emptyObject;
         cmd["findAndModify"] = Bson(pending.name);
@@ -412,7 +412,7 @@ private:
 
     void markCompilerVersionDone(string machineName, BsonObjectID compilerVersionId) {
         auto updateSpec = ["$set": (["done": true])];
-        _db.compilerVersionsCollection(machineName).
+        _db.compilerVersions(machineName).
             update(["_id": compilerVersionId], updateSpec);
     }
 

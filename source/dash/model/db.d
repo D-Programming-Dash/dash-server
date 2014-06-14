@@ -102,37 +102,37 @@ final class Database {
         return _machines;
     }
 
-    MongoCollection compilerVersionsCollection(string machineName) {
-        if (auto existing = machineName in _compilerVersionsCollections) {
+    MongoCollection compilerVersions(string machineName) {
+        if (auto existing = machineName in _compilerVersionsMap) {
             return *existing;
         }
 
         assert(isValidName(machineName));
         auto result = _db["compilerVersions." ~ machineName];
         result.ensureIndex(["name": 1]);
-        return _compilerVersionsCollections[machineName] = result;
+        return _compilerVersionsMap[machineName] = result;
     }
 
-    MongoCollection pendingBenchmarksCollection(string machineName) {
-        if (auto existing = machineName in _pendingBenchmarksCollections) {
+    MongoCollection pendingBenchmarks(string machineName) {
+        if (auto existing = machineName in _pendingBenchmarksMap) {
             return *existing;
         }
 
         assert(isValidName(machineName));
         auto result = _db["pendingBenchmarks." ~ machineName];
         result.ensureIndex(["attempted": 1]);
-        return _pendingBenchmarksCollections[machineName] = result;
+        return _pendingBenchmarksMap[machineName] = result;
     }
 
-    MongoCollection resultsCollection(string machineName) {
-        if (auto existing = machineName in _resultsCollections) {
+    MongoCollection results(string machineName) {
+        if (auto existing = machineName in _resultsMap) {
             return *existing;
         }
 
         assert(isValidName(machineName));
         auto result = _db["results." ~ machineName];
         result.ensureIndex(["name": 1]);
-        return _resultsCollections[machineName] = result;
+        return _resultsMap[machineName] = result;
     }
 
     auto runCommand(T...)(auto ref T args) {
@@ -144,7 +144,7 @@ private:
     MongoCollection _benchmarkBundles;
     MongoCollection _compilers;
     MongoCollection _machines;
-    MongoCollection[string] _compilerVersionsCollections;
-    MongoCollection[string] _pendingBenchmarksCollections;
-    MongoCollection[string] _resultsCollections;
+    MongoCollection[string] _compilerVersionsMap;
+    MongoCollection[string] _pendingBenchmarksMap;
+    MongoCollection[string] _resultsMap;
 }
