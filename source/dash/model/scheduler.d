@@ -220,24 +220,20 @@ class Scheduler {
             compilerVersion.update = artifact.latestVersion;
             compilerVersions.insert(compilerVersion);
 
+            auto bundleIdsToRun = _versionedArtifacts.byValue.filter!(
+                a => a.type == ArtifactType.benchmarkBundle
+            ).map!(a => benchmarkBundleByName(a.name)._id).array;
+
             bool insertedOne = false;
             foreach (runConfig; compiler.runConfigs) {
                 if (runConfig.inactive) continue;
 
-                foreach (benchmarkArtifact; _versionedArtifacts.byValue.filter!(
-                    a => a.type == ArtifactType.benchmarkBundle
-                )) {
+                foreach (bundleId; bundleIdsToRun) {
                     db.PendingBenchmark pending;
                     pending._id = BsonObjectID.generate;
                     pending.compilerVersionId = compilerVersionId;
                     pending.runConfigName = runConfig.name;
-
-                    // TODO: Cache this id lookup – don't want to invert loop
-                    // structure because it would change run order (complete one
-                    // config, then the next).
-                    pending.benchmarkBundleId =
-                        benchmarkBundleByName(benchmarkArtifact.name)._id;
-
+                    pending.benchmarkBundleId = bundleId;
                     pendingBenchmarks.insert(pending);
                     insertedOne = true;
                 }
