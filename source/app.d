@@ -54,7 +54,7 @@ shared static this() {
         peerValidationMode = SSLPeerValidationMode.trustedCert;
     }
     listenThrift(
-        3472,
+        3274,
         new class api.ResultServer {
             override api.CompilerInfo getCompilerInfo(string machineName, string compilerName) {
                 logInfo("Compiler info request from %s: %s", machineName, compilerName);
@@ -77,7 +77,7 @@ shared static this() {
     ThriftListenOptions opts;
     opts.bindAddress = "127.0.0.1";
     listenThrift(
-        3473,
+        3275,
         new class api.AdminServer {
             override void addMachine(string name, string description) {
                 scheduler.addMachine(name, description);
