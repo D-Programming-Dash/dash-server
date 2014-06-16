@@ -300,12 +300,15 @@ class Scheduler {
         import std.algorithm;
         import std.range;
 
-        auto success = apiResult.tests.
+        auto hadFailures = apiResult.tests.
             map!(a => a.phases).
             joiner.
             map!(a => a.exitCode).
             any!(a => a != 0);
-        if (!success) return;
+        if (hadFailures) {
+            logInfo("[%s] Benchmark run had failures: %s", machineName, apiResult);
+            return;
+        }
         // TODO: Actually log errors here.
 
         auto pendingId = BsonObjectID.fromString(apiResult.taskId);
