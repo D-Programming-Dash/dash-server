@@ -168,7 +168,10 @@ class Scheduler {
                 "runConfig": runConfig.name // Informational.
             ]);
 
-            auto updateSpec = ["$set": (["attempted": true])];
+            auto updateSpec = ["$set": ([
+                "attempted": true.serializeToBson,
+                "benchmarkScmRevision": bt.scmRevision.serializeToBson
+            ])];
             pendingBenchmarks.update(["_id": toExecute._id], updateSpec);
 
             api.Task t;
