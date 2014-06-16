@@ -180,17 +180,18 @@ class Scheduler {
         }
 
         // Okay, nothing in the queue yet. See if we can push something new. We
-        // only want to push are pure benchmark suite update if we can't also
+        // only want to push pure benchmark suite updates if we can't also
         // combine it with a compiler version update.
 
-        VersionedArtifact[] outOfDate;
-
+        // Get the timestamps which we last processed for the machine in question...
         auto cur = _db.machines.findOne(["name": machineName], ["lastEnqueued": true]);
         enforce(!cur.isNull, format("Machine '%s' not registed in database.", machineName));
         SysTime[string] clientTimestamps;
         auto lastEnqueued = cur["lastEnqueued"];
         if (!lastEnqueued.isNull) deserializeBson(clientTimestamps, lastEnqueued);
 
+        // ... and figure out which artifacts are out of date from that.
+        VersionedArtifact[] outOfDate;
         foreach (name, artifact; _versionedArtifacts) {
             auto ts = name in clientTimestamps;
             if (!ts || *ts < artifact.latestVersion.timestamp) {
@@ -200,7 +201,7 @@ class Scheduler {
 
         logDiagnostic("Out of date artifacts for '%s': %s", machineName, outOfDate);
 
-        auto byTimestamp(ArtifactType type) {
+        auto outdatedByTimestamp(ArtifactType type) {
             auto list = outOfDate.filter!(a => a.type == type).array;
             list.sort!((a, b) => a.latestVersion.timestamp < b.latestVersion.timestamp);
             return list;
@@ -212,7 +213,7 @@ class Scheduler {
             _db.machines.update(["name": machineName], updateSpec);
         }
 
-        foreach (artifact; byTimestamp(ArtifactType.compiler)) {
+        foreach (artifact; outdatedByTimestamp(ArtifactType.compiler)) {
             auto compiler = compilerByName(artifact.name);
 
             auto compilerVersionId = BsonObjectID.generate;
@@ -256,7 +257,7 @@ class Scheduler {
             markCompilerVersionDone(machineName, compilerVersionId);
         }
 
-        foreach (artifact; byTimestamp(ArtifactType.benchmarkBundle)) {
+        foreach (artifact; outdatedByTimestamp(ArtifactType.benchmarkBundle)) {
             auto benchmark = benchmarkBundleByName(artifact.name);
 
             bool insertedOne = false;
