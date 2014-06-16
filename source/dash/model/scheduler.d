@@ -147,7 +147,6 @@ class Scheduler {
                 ],
                 ["runConfigs.$" : true]
             );
-            logInfo("runConfigs: %s", runConfigBson);
             auto runConfig = runConfigBson["runConfigs"][0].deserializeBson!(db.RunConfig);
 
             auto bundle = _db.benchmarkBundles.
