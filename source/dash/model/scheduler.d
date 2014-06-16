@@ -160,6 +160,8 @@ class Scheduler {
             enforce(artifact.source.baseUrls.length == 1,
                     "Benchmarks should be single-sourced.");
             bt.scmUrl = artifact.source.baseUrls[0];
+            assert(!artifact.latestVersion.versionIds.empty,
+                "Should have fetched current version on startup resp. when adding the artifact.");
             bt.scmRevision = artifact.latestVersion.versionIds[0];
             bt.config = runConfig.config;
             bt.config ~= api.Config(10, [
@@ -362,7 +364,7 @@ private:
         artifact.type = type;
 
         artifact.source = createVersionedSource(sourceType, sourceConfig);
-        //artifact.updateLatestVersion();
+        artifact.updateLatestVersion();
 
         assert(name !in _versionedArtifacts);
         _versionedArtifacts[name] = artifact;
