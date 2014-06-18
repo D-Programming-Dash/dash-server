@@ -10,32 +10,38 @@ enum SourceType {
     githubBranches
 }
 
+/**
+ * Configuration data for a dash.versioned_source.
+ */
 struct VersionedSource {
     SourceType type;
     Bson config;
 }
 
+/**
+ * The global registration record for a compiler.
+ *
+ * No per-machine data.
+ */
 struct Compiler {
+    /// Unique name, used to identify the compiler in the API and the
+    /// user interface.
     string name;
+
+    /// User-visible free-form description of the compiler.
     string description;
+
+    /// Compiler source code location.
     VersionedSource source;
+
+    /// The compiler type, as used by the client to determine how to handle
+    /// building and invoking it.
     api.CompilerType clientType;
+
     RunConfig[] runConfigs;
 }
 
-struct BenchmarkBundle {
-    BsonObjectID _id;
-    string name;
-    VersionedSource source;
-}
-
-struct Machine {
-    string name;
-    string description;
-
-    SysTime[string] timestamps;
-}
-
+/// ditto
 struct RunConfig {
     string name;
     string description;
@@ -48,6 +54,53 @@ struct RunConfig {
     /// Completely hide this configuration from the UI.
     bool hidden;
 }
+
+/**
+ * The global registration record for a benchmark bundle.
+ *
+ * No per-machine data.
+ */
+struct BenchmarkBundle {
+    BsonObjectID _id;
+
+    /// Unique name, used to identify the bundle in the API and the user
+    /// interface.
+    string name;
+
+    /// Source code location.
+    VersionedSource source;
+}
+
+/**
+ * The record for a machine, encapsulating both basic metadata (free-form
+ * description, etc.) and its current state.
+ *
+ * The unique name field is used to idenfity the machine in the API.
+ */
+struct Machine {
+    string name;
+
+    /// User-visible free-form description of the machine (e.g. platform,
+    /// hardware specs, etc.).
+    string description;
+
+    /// The timestamps of the latest VersionUpdates that have already been
+    /// processed, i.e. had the benchmark tasks resulting from the respective
+    /// update events enqueued.
+    SysTime[string] timestamps;
+
+    /// The versioned_source version ids of the compilers currently installed
+    /// on the machine.
+    ///
+    /// This model, of course, builds on the assumption that the client machine
+    /// admin never intentionally messes up the state of the Dash working
+    /// directory. Removing the compiler altogehter is fine, though, as the
+    /// client will simply request the CompilerInfo from us and rebuild the
+    /// compiler if it detects that it does not in fact exist. This is also how
+    /// initial installation of a new compiler is handled.
+    string[][string] currentVersionIds;
+}
+
 
 struct CompilerVersion {
     BsonObjectID _id;
