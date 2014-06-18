@@ -51,7 +51,9 @@ shared static this() {
         useCertificateChainFile(certPath);
         usePrivateKeyFile(privateKeyPath);
         useTrustedCertificateFile(caCertPath);
-        peerValidationMode = SSLPeerValidationMode.trustedCert;
+        with (SSLPeerValidationMode) {
+            peerValidationMode = checkCert | checkTrust;
+        }
     }
     listenThrift(
         3274,
