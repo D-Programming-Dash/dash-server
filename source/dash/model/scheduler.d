@@ -99,12 +99,12 @@ class Scheduler {
         auto artifact = *enforce(compilerName in _versionedArtifacts,
             format("Compiler '%s' not registered in configuration database."));
 
-        string[] versionIds = currentVersionIdsForMachine(machineName, compilerName);
         auto compiler = compilerByName(compilerName);
 
+        auto versionIds = currentVersionIdsForMachine(machineName, compilerName);
         if (!versionIds) {
             // Compiler not used on the machine, just install the latest one.
-            versionIds = artifact.latestVersion.versionIds;
+            versionIds = artifact.lastUpdate.versionIds;
             return updateCompilerAtMachine(machineName, artifact, compiler, versionIds);
         }
         return makeCompilerInfo(artifact, compiler, versionIds);
@@ -159,9 +159,9 @@ class Scheduler {
             enforce(artifact.source.baseUrls.length == 1,
                     "Benchmarks should be single-sourced.");
             bt.scmUrl = artifact.source.baseUrls[0];
-            assert(!artifact.latestVersion.versionIds.empty,
+            assert(!artifact.lastUpdate.versionIds.empty,
                 "Should have fetched current version on startup resp. when adding the artifact.");
-            bt.scmRevision = artifact.latestVersion.versionIds[0];
+            bt.scmRevision = artifact.lastUpdate.versionIds[0];
             bt.config = runConfig.config;
             bt.config ~= api.Config(10, [
                 "compiler": compilerVersion.name,
@@ -194,7 +194,7 @@ class Scheduler {
         VersionedArtifact[] outOfDate;
         foreach (name, artifact; _versionedArtifacts) {
             auto ts = name in clientTimestamps;
-            if (!ts || *ts < artifact.latestVersion.timestamp) {
+            if (!ts || *ts < artifact.lastUpdate.timestamp) {
                 outOfDate ~= artifact;
             }
         }
@@ -203,13 +203,13 @@ class Scheduler {
 
         auto outdatedByTimestamp(ArtifactType type) {
             auto list = outOfDate.filter!(a => a.type == type).array;
-            list.sort!((a, b) => a.latestVersion.timestamp < b.latestVersion.timestamp);
+            list.sort!((a, b) => a.lastUpdate.timestamp < b.lastUpdate.timestamp);
             return list;
         }
 
         void updateLastEnqueued(VersionedArtifact artifact) {
             auto updateSpec = ["$set": (["lastEnqueued." ~ artifact.name:
-                artifact.latestVersion.timestamp])];
+                artifact.lastUpdate.timestamp])];
             _db.machines.update(["name": machineName], updateSpec);
         }
 
@@ -220,7 +220,7 @@ class Scheduler {
             db.CompilerVersion compilerVersion;
             compilerVersion._id = compilerVersionId;
             compilerVersion.name = artifact.name;
-            compilerVersion.update = artifact.latestVersion;
+            compilerVersion.update = artifact.lastUpdate;
             compilerVersions.insert(compilerVersion);
 
             auto bundleIdsToRun = _versionedArtifacts.byValue.filter!(
@@ -254,7 +254,7 @@ class Scheduler {
             // callback. Not that it would matter much – for optimization
             // purposes, it might even be better to leave it off entirely as
             // there will be no associated results to load anyway.
-            markCompilerVersionDone(machineName, compilerVersionId);
+            markCompilerVersionCompleted(machineName, compilerVersionId);
         }
 
         foreach (artifact; outdatedByTimestamp(ArtifactType.benchmarkBundle)) {
@@ -262,15 +262,15 @@ class Scheduler {
 
             bool insertedOne = false;
             foreach (compiler; allCompilers) {
-                auto latestVersion = _versionedArtifacts[compiler.name].latestVersion;
+                auto lastUpdate = _versionedArtifacts[compiler.name].lastUpdate;
                 auto compilerVersion = compilerVersions.findOne([
                     "name": serializeToBson(compiler.name),
-                    "update": serializeToBson(latestVersion)
+                    "update": serializeToBson(lastUpdate)
                 ], ["_id": true]);
                 enforce(!compilerVersion.isNull, format(
                     "Internal error: Could not find version '%s' for compiler " ~
                     "'%s', should have been previously inserted.",
-                    latestVersion, compiler.name));
+                    lastUpdate, compiler.name));
 
                 auto compilerVersionId = compilerVersion["_id"].get!BsonObjectID;
 
@@ -367,7 +367,7 @@ private:
         artifact.type = type;
 
         artifact.source = createVersionedSource(sourceType, sourceConfig);
-        artifact.updateLatestVersion();
+        artifact.fetchLastUpdate();
 
         assert(name !in _versionedArtifacts);
         _versionedArtifacts[name] = artifact;
@@ -412,11 +412,11 @@ private:
             "attempted": serializeToBson(false),
             "compilerVersionId": serializeToBson(compilerVersionId)
         ]).empty;
-        if (done) markCompilerVersionDone(machineName, compilerVersionId);
+        if (done) markCompilerVersionCompleted(machineName, compilerVersionId);
     }
 
-    void markCompilerVersionDone(string machineName, BsonObjectID compilerVersionId) {
-        auto updateSpec = ["$set": (["done": true])];
+    void markCompilerVersionCompleted(string machineName, BsonObjectID compilerVersionId) {
+        auto updateSpec = ["$set": (["completed": true])];
         _db.compilerVersions(machineName).
             update(["_id": compilerVersionId], updateSpec);
     }
@@ -428,7 +428,7 @@ private:
                 sleep(15.minutes);
                 logInfo("Updating version information.");
                 foreach (artifact; _versionedArtifacts) {
-                    artifact.updateLatestVersion();
+                    artifact.fetchLastUpdate();
                 }
             }
         });
@@ -483,14 +483,14 @@ class VersionedArtifact {
     ArtifactType type;
     VersionedSource source;
 
-    VersionUpdate latestVersion;
+    VersionUpdate lastUpdate;
 
-    void updateLatestVersion() {
-        latestVersion = source.fetchLastUpdate();
+    void fetchLastUpdate() {
+        lastUpdate = source.fetchLastUpdate();
     }
 
     override string toString() {
         import std.string;
-        return format("VersionedArtifact('%s', %s, %s)", name, type, latestVersion);
+        return format("VersionedArtifact('%s', %s, %s)", name, type, lastUpdate);
     }
 }
