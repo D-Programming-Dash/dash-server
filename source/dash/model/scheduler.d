@@ -158,17 +158,28 @@ class Scheduler {
 
             bool insertedOne = false;
             foreach (compiler; allCompilers) {
-                auto lastUpdate = _versionedArtifacts[compiler.name].lastUpdate;
-                auto compilerVersion = _db.compilerVersions(machineName).findOne([
-                    "name": serializeToBson(compiler.name),
-                    "update": serializeToBson(lastUpdate)
-                ], ["_id": true]);
-                enforce(!compilerVersion.isNull, format(
-                    "Internal error: Could not find version '%s' for compiler " ~
-                    "'%s', should have been previously inserted.",
-                    lastUpdate, compiler.name));
+                BsonObjectID compilerVersionId;
 
-                auto compilerVersionId = compilerVersion["_id"].get!BsonObjectID;
+                auto versionIds = currentVersionIdsForMachine(machineName, compiler.name);
+                if (versionIds) {
+                    auto compilerVersion = _db.compilerVersions(machineName).findOne([
+                        "name": serializeToBson(compiler.name),
+                        "update.versionIds": serializeToBson(versionIds)
+                    ], ["_id": true]);
+                    assert(!compilerVersion.isNull, format(
+                        "Could not find version with ids '%s' for compiler '%s', "
+                        "should have been previously inserted.", versionIds, compiler.name));
+                    compilerVersionId = compilerVersion["_id"].get!BsonObjectID;
+                } else {
+                    // The compiler isn't installed at the target machine at
+                    // all yet, so simply use the most recent version.
+                    compilerVersionId = BsonObjectID.generate;
+                    db.CompilerVersion compilerVersion;
+                    compilerVersion._id = compilerVersionId;
+                    compilerVersion.name = compiler.name;
+                    compilerVersion.update = _versionedArtifacts[compiler.name].lastUpdate;
+                    _db.compilerVersions(machineName).insert(compilerVersion);
+                }
 
                 foreach (runConfig; compiler.runConfigs) {
                     if (runConfig.inactive) continue;
