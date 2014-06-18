@@ -113,71 +113,10 @@ class Scheduler {
     api.Task nextTaskForMachine(string machineName) {
         enforceValidName(machineName);
 
+        api.Task result;
+
         // Check whether there is still something in the queue for the machine.
-        auto pendingBenchmarks = _db.pendingBenchmarks(machineName);
-        auto compilerVersions = _db.compilerVersions(machineName);
-        auto unattempted = pendingBenchmarks.findOne(["attempted": false]);
-        if (!unattempted.isNull) {
-            auto toExecute = unattempted.deserializeBson!(db.PendingBenchmark);
-            auto compilerVersion = compilerVersions.
-                findOne(["_id": toExecute.compilerVersionId]).
-                deserializeBson!(db.CompilerVersion);
-
-            // Check if we need to update the compiler on the target machine
-            // before running the benchmark.
-            auto currentVersionIds = currentVersionIdsForMachine(
-                machineName, compilerVersion.name);
-            auto targetVersionIds = compilerVersion.update.versionIds;
-            if (currentVersionIds != targetVersionIds) {
-                auto cut = updateCompilerAtMachine(
-                    machineName,
-                    _versionedArtifacts[compilerVersion.name],
-                    compilerByName(compilerVersion.name),
-                    targetVersionIds
-                );
-                api.Task t;
-                t.set!"compilerUpdateTask"(cut);
-                return t;
-            }
-
-            auto runConfigBson = _db.compilers.findOne(
-                [
-                    "name": serializeToBson(compilerVersion.name),
-                    "runConfigs.name": serializeToBson(toExecute.runConfigName)
-                ],
-                ["runConfigs.$" : true]
-            );
-            auto runConfig = runConfigBson["runConfigs"][0].deserializeBson!(db.RunConfig);
-
-            auto bundle = _db.benchmarkBundles.
-                findOne(["_id" : toExecute.benchmarkBundleId]).
-                deserializeBson!(db.BenchmarkBundle);
-            auto artifact = _versionedArtifacts[bundle.name];
-
-            api.BenchmarkTask bt;
-            bt.id = toExecute._id.toString();
-            enforce(artifact.source.baseUrls.length == 1,
-                    "Benchmarks should be single-sourced.");
-            bt.scmUrl = artifact.source.baseUrls[0];
-            assert(!artifact.lastUpdate.versionIds.empty,
-                "Should have fetched current version on startup resp. when adding the artifact.");
-            bt.scmRevision = artifact.lastUpdate.versionIds[0];
-            bt.config = runConfig.config;
-            bt.config ~= api.Config(10, [
-                "compiler": compilerVersion.name,
-                "runConfig": runConfig.name // Informational.
-            ]);
-
-            auto updateSpec = ["$set": ([
-                "attempted": true.serializeToBson,
-                "benchmarkScmRevision": bt.scmRevision.serializeToBson
-            ])];
-            pendingBenchmarks.update(["_id": toExecute._id], updateSpec);
-
-            api.Task t;
-            t.set!"benchmarkTask"(bt);
-            return t;
-        }
+        if (fillTaskFromPending(machineName, result)) return result;
 
         // Okay, nothing in the queue yet. See if we can push something new. We
         // only want to push pure benchmark suite updates if we can't also
@@ -221,7 +160,7 @@ class Scheduler {
             compilerVersion._id = compilerVersionId;
             compilerVersion.name = artifact.name;
             compilerVersion.update = artifact.lastUpdate;
-            compilerVersions.insert(compilerVersion);
+            _db.compilerVersions(machineName).insert(compilerVersion);
 
             auto bundleIdsToRun = _versionedArtifacts.byValue.filter!(
                 a => a.type == ArtifactType.benchmarkBundle
@@ -237,16 +176,17 @@ class Scheduler {
                     pending.compilerVersionId = compilerVersionId;
                     pending.runConfigName = runConfig.name;
                     pending.benchmarkBundleId = bundleId;
-                    pendingBenchmarks.insert(pending);
+                    _db.pendingBenchmarks(machineName).insert(pending);
                     insertedOne = true;
                 }
             }
 
             updateLastEnqueued(artifact);
 
-            // TODO: Replace this by loop to top.
             if (insertedOne) {
-                return nextTaskForMachine(machineName);
+                auto found = fillTaskFromPending(machineName, result);
+                assert(found);
+                return result;
             }
 
             // If there haven't acutally been any run configs, immediately set
@@ -263,7 +203,7 @@ class Scheduler {
             bool insertedOne = false;
             foreach (compiler; allCompilers) {
                 auto lastUpdate = _versionedArtifacts[compiler.name].lastUpdate;
-                auto compilerVersion = compilerVersions.findOne([
+                auto compilerVersion = _db.compilerVersions(machineName).findOne([
                     "name": serializeToBson(compiler.name),
                     "update": serializeToBson(lastUpdate)
                 ], ["_id": true]);
@@ -282,18 +222,21 @@ class Scheduler {
                     pending.compilerVersionId = compilerVersionId;
                     pending.runConfigName = runConfig.name;
                     pending.benchmarkBundleId = benchmark._id;
-                    pendingBenchmarks.insert(pending);
+                    _db.pendingBenchmarks(machineName).insert(pending);
 
                     insertedOne = true;
                 }
             }
 
-            // TODO: Replace this by loop to top.
-            if (insertedOne) return nextTaskForMachine(machineName);
+            if (insertedOne) {
+                auto found = fillTaskFromPending(machineName, result);
+                assert(found);
+                return result;
+            }
         }
 
         // Nothing to do for the client.
-        return api.Task.init;
+        return result;
     }
 
     void postResult(string machineName, api.BenchmarkResult apiResult) {
@@ -332,6 +275,70 @@ class Scheduler {
     }
 
 private:
+    bool fillTaskFromPending(string machineName, ref api.Task task) {
+        auto pendingBenchmarks = _db.pendingBenchmarks(machineName);
+        auto unattempted = pendingBenchmarks.findOne(["attempted": false]);
+        if (unattempted.isNull) return false;
+
+        auto toExecute = unattempted.deserializeBson!(db.PendingBenchmark);
+        auto compilerVersion = _db.compilerVersions(machineName).
+            findOne(["_id": toExecute.compilerVersionId]).
+            deserializeBson!(db.CompilerVersion);
+
+        // Check if we need to update the compiler on the target machine
+        // before running the benchmark.
+        auto currentVersionIds = currentVersionIdsForMachine(
+            machineName, compilerVersion.name);
+        auto targetVersionIds = compilerVersion.update.versionIds;
+        if (currentVersionIds != targetVersionIds) {
+            auto cut = updateCompilerAtMachine(
+                machineName,
+                _versionedArtifacts[compilerVersion.name],
+                compilerByName(compilerVersion.name),
+                targetVersionIds
+            );
+            task.set!"compilerUpdateTask"(cut);
+            return true;
+        }
+
+        auto runConfigBson = _db.compilers.findOne(
+            [
+                "name": serializeToBson(compilerVersion.name),
+                "runConfigs.name": serializeToBson(toExecute.runConfigName)
+            ],
+            ["runConfigs.$" : true]
+        );
+        auto runConfig = runConfigBson["runConfigs"][0].deserializeBson!(db.RunConfig);
+
+        auto bundle = _db.benchmarkBundles.
+            findOne(["_id" : toExecute.benchmarkBundleId]).
+            deserializeBson!(db.BenchmarkBundle);
+        auto artifact = _versionedArtifacts[bundle.name];
+
+        api.BenchmarkTask bt;
+        bt.id = toExecute._id.toString();
+        enforce(artifact.source.baseUrls.length == 1,
+                "Benchmarks should be single-sourced.");
+        bt.scmUrl = artifact.source.baseUrls[0];
+        assert(!artifact.lastUpdate.versionIds.empty,
+            "Should have fetched current version on startup resp. when adding the artifact.");
+        bt.scmRevision = artifact.lastUpdate.versionIds[0];
+        bt.config = runConfig.config;
+        bt.config ~= api.Config(10, [
+            "compiler": compilerVersion.name,
+            "runConfig": runConfig.name // Informational.
+        ]);
+
+        auto updateSpec = ["$set": ([
+            "attempted": true.serializeToBson,
+            "benchmarkScmRevision": bt.scmRevision.serializeToBson
+        ])];
+        pendingBenchmarks.update(["_id": toExecute._id], updateSpec);
+
+        task.set!"benchmarkTask"(bt);
+        return true;
+    }
+
     auto allCompilers() {
         return _db.compilers.find().map!(a => a.deserializeBson!(db.Compiler));
     }
