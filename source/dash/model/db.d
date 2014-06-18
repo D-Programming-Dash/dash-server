@@ -55,6 +55,10 @@ struct CompilerVersion {
 
     import dash.versioned_source.base : VersionUpdate;
     VersionUpdate update;
+
+    /// All benchmarks were run (resp. attempted to be run) for this compiler
+    /// version, making it a sensible choice for date-based comparisons, etc.
+    bool completed;
 }
 
 struct PendingBenchmark {
