@@ -87,7 +87,7 @@ struct Machine {
     /// The timestamps of the latest VersionUpdates that have already been
     /// processed, i.e. had the benchmark tasks resulting from the respective
     /// update events enqueued.
-    SysTime[string] timestamps;
+    SysTime[string] lastEnqueued;
 
     /// The versioned_source version ids of the compilers currently installed
     /// on the machine.
