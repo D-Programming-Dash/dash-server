@@ -119,8 +119,9 @@ class Scheduler {
         if (fillTaskFromPending(machineName, result)) return result;
 
         // Okay, nothing in the queue yet. See if we can push something new. We
-        // only want to push pure benchmark suite updates if we can't also
-        // combine it with a compiler version update.
+        // prefer benchmark suite updates to give people an opportunity to check
+        // that they didn't accidentally change performance characteristics when
+        // pushing a compatibility fix.
 
         // Get the timestamps which we last processed for the machine in question...
         auto cur = _db.machines.findOne(["name": machineName], ["lastEnqueued": true]);
@@ -150,6 +151,46 @@ class Scheduler {
             auto updateSpec = ["$set": (["lastEnqueued." ~ artifact.name:
                 artifact.lastUpdate.timestamp])];
             _db.machines.update(["name": machineName], updateSpec);
+        }
+
+        foreach (artifact; outdatedByTimestamp(ArtifactType.benchmarkBundle)) {
+            auto benchmark = benchmarkBundleByName(artifact.name);
+
+            bool insertedOne = false;
+            foreach (compiler; allCompilers) {
+                auto lastUpdate = _versionedArtifacts[compiler.name].lastUpdate;
+                auto compilerVersion = _db.compilerVersions(machineName).findOne([
+                    "name": serializeToBson(compiler.name),
+                    "update": serializeToBson(lastUpdate)
+                ], ["_id": true]);
+                enforce(!compilerVersion.isNull, format(
+                    "Internal error: Could not find version '%s' for compiler " ~
+                    "'%s', should have been previously inserted.",
+                    lastUpdate, compiler.name));
+
+                auto compilerVersionId = compilerVersion["_id"].get!BsonObjectID;
+
+                foreach (runConfig; compiler.runConfigs) {
+                    if (runConfig.inactive) continue;
+
+                    db.PendingBenchmark pending;
+                    pending._id = BsonObjectID.generate;
+                    pending.compilerVersionId = compilerVersionId;
+                    pending.runConfigName = runConfig.name;
+                    pending.benchmarkBundleId = benchmark._id;
+                    _db.pendingBenchmarks(machineName).insert(pending);
+
+                    insertedOne = true;
+                }
+            }
+
+            updateLastEnqueued(artifact);
+
+            if (insertedOne) {
+                auto found = fillTaskFromPending(machineName, result);
+                assert(found);
+                return result;
+            }
         }
 
         foreach (artifact; outdatedByTimestamp(ArtifactType.compiler)) {
@@ -190,49 +231,11 @@ class Scheduler {
             }
 
             // If there haven't acutally been any run configs, immediately set
-            // the "done" flag, as we won't get around to doing this in a client
-            // callback. Not that it would matter much – for optimization
+            // the "completed" flag, as we won't get around to doing this in a
+            // client callback. Not that it would matter much – for optimization
             // purposes, it might even be better to leave it off entirely as
             // there will be no associated results to load anyway.
             markCompilerVersionCompleted(machineName, compilerVersionId);
-        }
-
-        foreach (artifact; outdatedByTimestamp(ArtifactType.benchmarkBundle)) {
-            auto benchmark = benchmarkBundleByName(artifact.name);
-
-            bool insertedOne = false;
-            foreach (compiler; allCompilers) {
-                auto lastUpdate = _versionedArtifacts[compiler.name].lastUpdate;
-                auto compilerVersion = _db.compilerVersions(machineName).findOne([
-                    "name": serializeToBson(compiler.name),
-                    "update": serializeToBson(lastUpdate)
-                ], ["_id": true]);
-                enforce(!compilerVersion.isNull, format(
-                    "Internal error: Could not find version '%s' for compiler " ~
-                    "'%s', should have been previously inserted.",
-                    lastUpdate, compiler.name));
-
-                auto compilerVersionId = compilerVersion["_id"].get!BsonObjectID;
-
-                foreach (runConfig; compiler.runConfigs) {
-                    if (runConfig.inactive) continue;
-
-                    db.PendingBenchmark pending;
-                    pending._id = BsonObjectID.generate;
-                    pending.compilerVersionId = compilerVersionId;
-                    pending.runConfigName = runConfig.name;
-                    pending.benchmarkBundleId = benchmark._id;
-                    _db.pendingBenchmarks(machineName).insert(pending);
-
-                    insertedOne = true;
-                }
-            }
-
-            if (insertedOne) {
-                auto found = fillTaskFromPending(machineName, result);
-                assert(found);
-                return result;
-            }
         }
 
         // Nothing to do for the client.
