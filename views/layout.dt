@@ -27,7 +27,6 @@ html
                      a(href="#") Multi-Compare
                form.navbar-form.navbar-right
                   .form-group
-                     label Machine name:
                      .btn-group
                         button#machine_name_dropdown(type="button", class="btn btn-default dropdown-toggle", data-toggle="dropdown") = currentMachine
                            span.caret
