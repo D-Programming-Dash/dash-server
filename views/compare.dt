@@ -1,7 +1,7 @@
 extends layout
 
 block title
-   - auto title = "Choose Revisions to Compare";
+   - auto title = "Comparing " ~ specifier;
 
 block body
    - void revisionChooser(string id, size_t selectedDateIdx)

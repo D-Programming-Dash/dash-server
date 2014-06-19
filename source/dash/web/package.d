@@ -9,32 +9,21 @@ class WebFrontend {
     }
 
     void registerRoutes(URLRouter r) {
-        r.get("/", &showHome);
-        r.get("/:machineName/compare", &redirectToDefaultCompare);
-        r.get("/:machineName/compare/:specifier", &getCompareResult);
+        r.get("/", &getHome);
+        r.get("/:machineName/compare", &getCompareIndex);
+        r.get("/:machineName/compare/:specifier", &getCompare);
         r.get("*", serveStaticFiles("./public"));
     }
 
-    void showHome(HTTPServerRequest req, HTTPServerResponse res) {
-        renderStatic!"home.dt"(req, res);
-    }
-
-    void getCompareResult(HTTPServerRequest req, HTTPServerResponse res) {
+    void getHome(HTTPServerRequest req, HTTPServerResponse res) {
         auto machineNames = _results.machineNames;
-        auto compilerNames = _results.compilerNames;
         auto defaultMachine = "<none>";
         if (!machineNames.empty) defaultMachine = machineNames[0];
-        res.render!(
-            "compare_chooser.dt",
-            compilerNames,
-            machineNames,
-            defaultMachine,
-            req
-        );
+        renderStatic!"home.dt"(req, res, defaultMachine);
     }
 
-    void redirectToDefaultCompare(HTTPServerRequest req, HTTPServerResponse res) {
-        auto machineName = validatedMachineName(req);
+    void getCompareIndex(HTTPServerRequest req, HTTPServerResponse res) {
+        auto currentMachine = validatedMachineName(req);
 
         auto compilers = _results.compilerNames;
         enforce(!compilers.empty, new HTTPStatusException(HTTPStatus.notFound));
@@ -45,20 +34,40 @@ class WebFrontend {
         auto defaultRunConfig = runConfigs[$ - 1];
 
         res.redirect("%s%s/compare/%s:%s@current..%s:%s@previous".format(
-            req.rootDir, machineName, defaultCompiler, defaultRunConfig,
+            req.rootDir, currentMachine, defaultCompiler, defaultRunConfig,
             defaultCompiler, defaultRunConfig));
     }
 
+    void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
+        auto currentMachine = validatedMachineName(req);
+
+        auto specifier = req.params["specifier"];
+
+        auto machineNames = _results.machineNames;
+        auto compilerNames = _results.compilerNames;
+
+        res.render!(
+            "compare.dt",
+            compilerNames,
+            machineNames,
+            currentMachine,
+            specifier,
+            req
+        );
+    }
+
 private:
-    void renderStatic(string templateFile)(HTTPServerRequest req, HTTPServerResponse res) {
+    void renderStatic(string templateFile)(
+        HTTPServerRequest req,
+        HTTPServerResponse res,
+        string currentMachine
+    ) {
         // TODO: Cache!
         auto machineNames = _results.machineNames;
-        auto defaultMachine = "<none>";
-        if (!machineNames.empty) defaultMachine = machineNames[0];
         res.render!(
             templateFile,
             machineNames,
-            defaultMachine,
+            currentMachine,
             req
         );
     }

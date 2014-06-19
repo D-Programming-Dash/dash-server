@@ -29,7 +29,7 @@ html
                   .form-group
                      label Machine name:
                      .btn-group
-                        button#machine_name_dropdown(type="button", class="btn btn-default dropdown-toggle", data-toggle="dropdown") = defaultMachine
+                        button#machine_name_dropdown(type="button", class="btn btn-default dropdown-toggle", data-toggle="dropdown") = currentMachine
                            span.caret
                         ul.dropdown-menu.pull-right(role="menu", aria-labelledby="machine_name_dropdown")
                            - foreach (name; machineNames)
