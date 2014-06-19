@@ -117,7 +117,7 @@ struct CompilerVersion {
 struct PendingBenchmark {
     BsonObjectID _id;
     BsonObjectID benchmarkBundleId;
-    string benchmarkBundleRevision;
+    string benchmarkScmRevision;
     BsonObjectID compilerVersionId;
     string runConfigName;
     bool attempted;

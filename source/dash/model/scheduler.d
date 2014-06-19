@@ -272,7 +272,7 @@ class Scheduler {
             result._id = BsonObjectID.generate;
             result.name = apiResult.name ~ '.' ~ test.name;
             result.compilerVersionId = pending.compilerVersionId;
-            result.benchmarkScmRevision = pending.benchmarkBundleRevision;
+            result.benchmarkScmRevision = pending.benchmarkScmRevision;
             result.runConfig = pending.runConfigName;
             foreach (phase; test.phases) {
                 foreach (name, values; phase.resultSamples)
