@@ -41,5 +41,5 @@ html
             p
                a(href="http://github.com/D-Programming-Dash") Source code on GitHub
 
-      script(src="https://code.jquery.com/jquery-1.10.2.min.js")
+      script(src="//code.jquery.com/jquery-1.11.1.min.js")
       script(src="#{req.rootDir}js/bootstrap.min.js")
