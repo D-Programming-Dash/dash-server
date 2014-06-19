@@ -257,21 +257,17 @@ class Scheduler {
         import std.algorithm;
         import std.range;
 
-        auto hadFailures = apiResult.tests.
-            map!(a => a.phases).
-            joiner.
-            map!(a => a.exitCode).
-            any!(a => a != 0);
-        if (hadFailures) {
-            logInfo("[%s] Benchmark run had failures: %s", machineName, apiResult);
-            return;
-        }
-        // TODO: Actually log errors here.
-
         auto pendingId = BsonObjectID.fromString(apiResult.taskId);
         auto pending = pendingBenchmarkById(machineName, pendingId);
 
+        bool hadErrors = false;
         foreach (test; apiResult.tests) {
+            if (test.phases.map!(a => a.exitCode).any!(a => a != 0)) {
+                // TODO: Actually log errors here.
+                hadErrors = true;
+                continue;
+            }
+
             db.Result result;
             result._id = BsonObjectID.generate;
             result.name = apiResult.name ~ '.' ~ test.name;
@@ -285,7 +281,12 @@ class Scheduler {
             result.envData = apiResult.testEnvData;
             _db.results(machineName).insert(result);
         }
-        markPendingBenchmarkFinished(machineName, apiResult.taskId);
+        if (!hadErrors) {
+            // Keep pendingBenchmark record around if there were errors so we
+            // can offer a "repeat" functionality for transient issues in the
+            // future.
+            markPendingBenchmarkFinished(machineName, apiResult.taskId);
+        }
     }
 
 private:
