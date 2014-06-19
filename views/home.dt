@@ -13,7 +13,7 @@ block body
          .col-sm-4
             h3 Compare Two Revisions
             p
-               a.btn.btn-default(href="#{req.rootDir}compare", role="button") Choose revisions &raquo;
+               a.btn.btn-default(href="#{req.rootDir}#{defaultMachine}/compare", role="button") Choose revisions &raquo;
          .col-sm-4
             h3 Track Single Benchmark
             p
