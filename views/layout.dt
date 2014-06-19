@@ -18,6 +18,13 @@ html
                   span.icon-bar
                a.navbar-brand(href="#{req.rootDir}") Dash Performance Tracker
             .navbar-collapse.collapse
+               ul.nav.navbar-nav
+                  li
+                     a(href="#") Compare
+                  li
+                     a(href="#") Track
+                  li
+                     a(href="#") Multi-Compare
                form.navbar-form.navbar-right
                   .form-group
                      label Machine name:
