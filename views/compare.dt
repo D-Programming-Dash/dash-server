@@ -1,38 +1,42 @@
 extends layout
 
 block title
-   - auto title = "Comparing " ~ specifier;
+   - auto title = "Comparing " ~ specifierString;
 
 block body
-   - void revisionChooser(string id, size_t selectedDateIdx)
+   - import dash.web.compiler_choice;
+   - void revisionChooser(string id, CompilerChoice spec, string[] runConfigNames)
       .form-group
          label.col-sm-3.control-label(for="#{id}_compiler") Compiler
          .col-sm-9
             select.form-control(name="#{id}_compiler", id="#{id}_compiler")
                - foreach (name; compilerNames)
-                  option = name
+                  option(selected=(name == spec.compilerName)) = name
+      .form-group
+         label.col-sm-3.control-label(for="#{id}_runconfig") Config
+         .col-sm-9
+            select.form-control(name="#{id}_runconfig", id="#{id}_runconfig")
+               - foreach (name; runConfigNames)
+                  option(selected=(name == spec.runConfigName)) = name
       .form-group
          label.col-sm-3.control-label(for="#{id}_revision") Revision
          .col-sm-9
             select.form-control(name="#{id}_revision", id="#{id}_revision")
-               - foreach (i, date; ["Current", "Previous", "1 day ago", "1 week ago", "1 month ago", "1 year ago"])
-                  option(selected=(i == selectedDateIdx)) = date
+               - foreach (pair; revisionChoiceNames)
+                  option(selected=(pair[1] == spec.revisionChoice.type)) = pair[0]
 
    .container
-      h2 Choose Revisions to Compare
-      form.form-horizontal(role="form", method="POST", action="#{req.rootDir}compare")
+      form.form-horizontal(role="form", method="POST", action="#{req.rootDir}#{currentMachine}/compare", onchange="this.submit()")
          .row
             .col-sm-6
                fieldset.panel.panel-default
                   .panel-heading
-                     h3.panel-title Comparison Base
+                     h3.panel-title Base
                   .panel-body
-                     - revisionChooser("base", 0);
+                     - revisionChooser("base", choice[0], runConfigNames[0]);
             .col-sm-6
                fieldset.panel.panel-default
                   .panel-heading
-                     h3.panel-title Comparison Target
+                     h3.panel-title Target
                   .panel-body
-                     - revisionChooser("target", 1);
-         .row
-            button(type="submit", class="btn btn-primary center-block") Compare »
+                     - revisionChooser("target", choice[1], runConfigNames[1]);

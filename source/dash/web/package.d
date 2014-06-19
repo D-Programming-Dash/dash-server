@@ -2,6 +2,7 @@ module dash.web;
 
 import vibe.d;
 import dash.model.results;
+import dash.web.compiler_choice;
 
 class WebFrontend {
     this (Results results) {
@@ -39,24 +40,50 @@ class WebFrontend {
     }
 
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
-        auto currentMachine = validatedMachineName(req);
-
-        auto specifier = req.params["specifier"];
-
         auto machineNames = _results.machineNames;
+        auto currentMachine = validatedMachineName(req, machineNames);
+
+        auto specifierString = req.params["specifier"];
+        auto choice = parseComparisonChoice(specifierString);
+
         auto compilerNames = _results.compilerNames;
+        foreach (cs; choice) {
+            enforce(compilerNames.canFind(cs.compilerName),
+                new HTTPStatusException(HTTPStatus.notFound));
+        }
+
+        auto runConfigNames =
+            compilerNames.map!(a => _results.runConfigNames(a)).array;
 
         res.render!(
             "compare.dt",
             compilerNames,
             machineNames,
             currentMachine,
-            specifier,
+            specifierString,
+            choice,
+            runConfigNames,
+            revisionChoiceNames,
             req
         );
     }
 
 private:
+    /// Maps from revision specification display strings to the internal
+    /// representation.
+    ///
+    /// Currently, only a subset of types is implemented, and no means for
+    /// specifying the additional info are provided.
+    import std.typecons : Tuple;
+    static immutable revisionChoiceNames = [
+        tuple("Current", RevisionChoice.Type.current),
+        tuple("Previous", RevisionChoice.Type.previous),
+        tuple("1 day ago", RevisionChoice.Type.day),
+        tuple("1 week ago", RevisionChoice.Type.week),
+        tuple("1 month ago", RevisionChoice.Type.month),
+        tuple("1 year ago", RevisionChoice.Type.year)
+    ];
+
     void renderStatic(string templateFile)(
         HTTPServerRequest req,
         HTTPServerResponse res,
@@ -72,10 +99,10 @@ private:
         );
     }
 
-    string validatedMachineName(HTTPServerRequest req) {
+    string validatedMachineName(HTTPServerRequest req, string[] machineNames = null) {
+        if (!machineNames) machineNames = _results.machineNames;
         auto name = req.params["machineName"];
-        // Horribly inefficient, cache.
-        enforce(_results.machineNames.canFind(name),
+        enforce(machineNames.canFind(name),
             new HTTPStatusException(HTTPStatus.notFound));
         return name;
     }
