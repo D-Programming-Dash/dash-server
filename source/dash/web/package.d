@@ -12,6 +12,7 @@ class WebFrontend {
     void registerRoutes(URLRouter r) {
         r.get("/", &getHome);
         r.get("/:machineName/compare", &getCompareIndex);
+        r.post("/:machineName/compare", &postCompare);
         r.get("/:machineName/compare/:specifier", &getCompare);
         r.get("*", serveStaticFiles("./public"));
     }
@@ -36,9 +37,13 @@ class WebFrontend {
         enforceHTTP(!runConfigs.empty, HTTPStatus.notFound);
         auto defaultRunConfig = runConfigs[$ - 1];
 
-        res.redirect("%s%s/compare/%s:%s@current..%s:%s@previous".format(
-            req.rootDir, currentMachine, defaultCompiler, defaultRunConfig,
-            defaultCompiler, defaultRunConfig));
+        CompilerChoice[2] choice;
+        choice[0] = CompilerChoice(defaultCompiler, defaultRunConfig,
+            RevisionChoice(RevisionChoice.Type.previous));
+        choice[1] = choice[0];
+        choice[1].revisionChoice.type = RevisionChoice.Type.current;
+
+        redirectToCompare(req, res, currentMachine, choice);
     }
 
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
@@ -69,7 +74,47 @@ class WebFrontend {
         );
     }
 
+    void postCompare(HTTPServerRequest req, HTTPServerResponse res) {
+        auto currentMachine = validatedMachineName(req);
+
+        CompilerChoice readChoice(string prefix) {
+            typeof(return) result;
+
+            auto compiler = (prefix ~ "compiler") in req.form;
+            enforceHTTP(compiler, HTTPStatus.badRequest);
+            result.compilerName = *compiler;
+
+            auto runConfig = (prefix ~ "runconfig") in req.form;
+            enforceHTTP(runConfig, HTTPStatus.badRequest);
+            result.runConfigName = *runConfig;
+
+            auto revision = (prefix ~ "revision") in req.form;
+            enforceHTTP(revision, HTTPStatus.badRequest);
+            auto typePair = revisionChoiceNames.find!(a => a[0] == *revision);
+            enforce(!typePair.empty);
+            result.revisionChoice.type = typePair.front[1];
+
+            return result;
+        }
+
+        CompilerChoice[2] choice;
+        choice[0] = readChoice("base_");
+        choice[1] = readChoice("target_");
+        redirectToCompare(req, res, currentMachine, choice);
+    }
+
 private:
+    void redirectToCompare(HTTPServerRequest req, HTTPServerResponse res,
+        string machine, in ref CompilerChoice[2] choice
+    ) {
+        auto url = appender!string();
+        url.put(req.rootDir);
+        url.put(machine);
+        url.put("/compare/");
+        choice.write(url);
+        res.redirect(url.data);
+    }
+
     /// Maps from revision specification display strings to the internal
     /// representation.
     ///

@@ -98,3 +98,26 @@ CompilerChoice[2] parseComparisonChoice(string specifier) {
 
     return result;
 }
+
+void write(R)(RevisionChoice c, R r) {
+    import std.format;
+    r.formattedWrite("%s", c.type);
+    if (!c.info.empty) {
+        r.put(":");
+        r.put(c.info);
+    }
+}
+
+void write(R)(CompilerChoice c, R r) {
+    r.put(c.compilerName);
+    r.put(":");
+    r.put(c.runConfigName);
+    r.put("@");
+    write(c.revisionChoice, r);
+}
+
+void write(R)(in ref CompilerChoice[2] c, R r) {
+    write(c[0], r);
+    r.put("..");
+    write(c[1], r);
+}
