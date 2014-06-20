@@ -26,12 +26,14 @@ class WebFrontend {
     void getCompareIndex(HTTPServerRequest req, HTTPServerResponse res) {
         auto currentMachine = validatedMachineName(req);
 
+        // Redirect client to arbitrary default compiler choice. Might want to
+        // make this configurable in the future.
         auto compilers = _results.compilerNames;
-        enforce(!compilers.empty, new HTTPStatusException(HTTPStatus.notFound));
+        enforceHTTP(!compilers.empty, HTTPStatus.notFound);
         auto defaultCompiler = compilers[0];
 
         auto runConfigs = _results.runConfigNames(defaultCompiler);
-        enforce(!runConfigs.empty, new HTTPStatusException(HTTPStatus.notFound));
+        enforceHTTP(!runConfigs.empty, HTTPStatus.notFound);
         auto defaultRunConfig = runConfigs[$ - 1];
 
         res.redirect("%s%s/compare/%s:%s@current..%s:%s@previous".format(
@@ -48,8 +50,7 @@ class WebFrontend {
 
         auto compilerNames = _results.compilerNames;
         foreach (cs; choice) {
-            enforce(compilerNames.canFind(cs.compilerName),
-                new HTTPStatusException(HTTPStatus.notFound));
+            enforceHTTP(compilerNames.canFind(cs.compilerName), HTTPStatus.notFound);
         }
 
         auto runConfigNames =
@@ -102,8 +103,7 @@ private:
     string validatedMachineName(HTTPServerRequest req, string[] machineNames = null) {
         if (!machineNames) machineNames = _results.machineNames;
         auto name = req.params["machineName"];
-        enforce(machineNames.canFind(name),
-            new HTTPStatusException(HTTPStatus.notFound));
+        enforceHTTP(machineNames.canFind(name), HTTPStatus.notFound);
         return name;
     }
 
