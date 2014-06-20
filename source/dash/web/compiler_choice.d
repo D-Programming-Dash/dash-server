@@ -25,9 +25,10 @@ struct RevisionChoice {
 
         /// Years before the current date. "year" is eq. to "year:1".
         year,
-
+/+ TODO
         /// A specific timestamp, stored in info ("date" is eq. to "current").
         date
++/
     }
 
     /// The main type part of the revision specifier.

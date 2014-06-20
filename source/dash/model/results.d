@@ -1,10 +1,12 @@
 module dash.model.results;
 
 import db = dash.model.db;
-import std.algorithm : map;
+import std.algorithm : map, minPos;
+import std.array : array;
 import std.datetime : SysTime;
 import std.exception : enforce;
 import std.range;
+import std.typecons : tuple;
 import vibe.data.bson;
 
 class Results {
@@ -24,6 +26,67 @@ class Results {
         auto result = _db.compilers.findOne(["name": compilerName], ["runConfigs": 1]);
         enforce(!result.isNull, "Unknown compiler.");
         return result["runConfigs"].get!(Bson[]).map!(a => a["name"].get!string).array;
+    }
+
+    BsonObjectID compilerVersionIdByIndex(string machineName,
+        string compilerName, int index
+    ) {
+        import vibe.db.mongo.connection;
+
+        auto coll = _db.compilerVersions(machineName);
+        auto findSpec = [
+            "name": serializeToBson(compilerName),
+            "completed": serializeToBson(true)
+        ];
+        auto bsonPairs = coll.find(findSpec, ["_id": true], QueryFlags.None,
+            index).sort(["$natural": -1]).limit(1);
+        return bsonPairs.front["_id"].deserializeBson!BsonObjectID;
+    }
+
+    BsonObjectID compilerVersionIdByTimestamp(string machineName,
+        string compilerName, SysTime targetTime,
+        SysTime olderThan = SysTime.init
+    ) {
+        auto coll = _db.compilerVersions(machineName);
+
+        auto findSpec = [
+            "name": serializeToBson(compilerName),
+            "completed": serializeToBson(true)
+        ];
+        if (olderThan != SysTime.init) {
+            findSpec["$lt"] = [
+                "update.timestamp": targetTime
+            ].serializeToBson;
+        }
+        auto bsonPairs = coll.find(findSpec,
+            ["_id": true, "update.timestamp": true]);
+        auto pairs = bsonPairs.map!(
+            a => tuple(a["_id"].deserializeBson!BsonObjectID,
+            a["update"]["timestamp"].deserializeBson!SysTime));
+
+        auto error(typeof(pairs.front) a) {
+            import core.time;
+            return abs(a[1] - targetTime);
+        }
+        // std.algorithm.minPos needs a forward range, even though we only
+        // want the first one.
+        auto min = pairs.front[0];
+        auto minError = error(pairs.front);
+        pairs.popFront();
+        while (!pairs.empty) {
+            auto currError = error(pairs.front);
+            if (currError <= minError) {
+                min = pairs.front[0];
+                minError = currError;
+            }
+            pairs.popFront();
+        }
+        return min;
+    }
+
+    db.CompilerVersion compilerVersionById(string machineName, BsonObjectID id) {
+        return _db.compilerVersions(machineName).
+            findOne(["_id": id]).deserializeBson!(db.CompilerVersion);
     }
 
 private:

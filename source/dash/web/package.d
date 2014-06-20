@@ -55,11 +55,59 @@ class WebFrontend {
 
         auto compilerNames = _results.compilerNames;
         foreach (cs; choice) {
-            enforceHTTP(compilerNames.canFind(cs.compilerName), HTTPStatus.notFound);
+            enforceHTTP(compilerNames.canFind(cs.compilerName),
+                HTTPStatus.notFound);
         }
 
         auto runConfigNames =
             compilerNames.map!(a => _results.runConfigNames(a)).array;
+
+        auto findVersionId(CompilerChoice choice, SysTime olderThan) {
+            import std.datetime;
+
+            auto number = () => choice.revisionChoice.info.empty ?
+                1 : to!int(choice.revisionChoice.info);
+
+            SysTime timestamp;
+            final switch (choice.revisionChoice.type) with (RevisionChoice.Type) {
+                case current:
+                    return _results.compilerVersionIdByIndex(
+                        currentMachine, choice.compilerName, 0);
+                case previous:
+                    return _results.compilerVersionIdByIndex(
+                        currentMachine, choice.compilerName, number());
+                case day:
+                    timestamp = Clock.currTime - number().days;
+                    break;
+                case week:
+                    timestamp = Clock.currTime - number().weeks;
+                    break;
+                case month:
+                    timestamp = Clock.currTime.add!"months"(-number());
+                    break;
+                case year:
+                    timestamp = Clock.currTime.add!"years"(-number());
+                    break;
+            }
+
+            return _results.compilerVersionIdByTimestamp(currentMachine,
+                choice.compilerName, timestamp, olderThan);
+        }
+
+        auto findVersion(CompilerChoice choice, SysTime olderThan = SysTime.init) {
+            auto id = findVersionId(choice, olderThan);
+            return _results.compilerVersionById(currentMachine, id);
+        }
+
+        auto targetVersion = findVersion(choice[1]);
+
+        SysTime baseOlderThan;
+        if (choice[0].compilerName == choice[1].compilerName &&
+            choice[0].runConfigName == choice[1].runConfigName
+        ) {
+            baseOlderThan = targetVersion.update.timestamp;
+        }
+        auto baseVersion = findVersion(choice[1], baseOlderThan);
 
         res.render!(
             "compare.dt",
