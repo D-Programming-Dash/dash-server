@@ -89,6 +89,15 @@ class Results {
             findOne(["_id": id]).deserializeBson!(db.CompilerVersion);
     }
 
+    db.Result[] resultsForRunConfig(string machineName,
+        BsonObjectID compilerVersionId, string runConfigName
+    ) {
+        return _db.results(machineName).find([
+            "compilerVersionId": compilerVersionId.serializeToBson,
+            "runConfig": runConfigName.serializeToBson
+        ]).map!(a => a.deserializeBson!(db.Result)).array;
+    }
+
 private:
     db.Database _db;
 }

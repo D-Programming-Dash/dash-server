@@ -109,6 +109,11 @@ class WebFrontend {
         }
         auto baseVersion = findVersion(choice[1], baseOlderThan);
 
+        auto baseResults = _results.resultsForRunConfig(
+            currentMachine, baseVersion._id, choice[0].runConfigName);
+        auto targetResults = _results.resultsForRunConfig(
+            currentMachine, targetVersion._id, choice[1].runConfigName);
+
         res.render!(
             "compare.dt",
             compilerNames,
