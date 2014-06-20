@@ -27,7 +27,7 @@ class AggregateSource : VersionedSource {
     override VersionUpdate fetchLastUpdate() {
         auto updates = _sources.map!(a => a.fetchLastUpdate()).array;
         auto newestTimestamp =
-            updates.map!(a => a.timestamp).minPos!((a, b) => b > a).front;
+            updates.map!(a => a.timestamp).minPos!((a, b) => a > b).front;
         auto ids = updates.map!(a => a.versionIds).joiner.array;
         return VersionUpdate(newestTimestamp, ids);
     }
