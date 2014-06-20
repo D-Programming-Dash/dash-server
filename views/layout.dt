@@ -20,11 +20,13 @@ html
             .navbar-collapse.collapse
                ul.nav.navbar-nav
                   li
-                     a(href="#") Compare
+                     a(href="#{req.rootDir}#{currentMachine}/compare") Compare
                   li
-                     a(href="#") Track
+                     a(href="#")
+                        del Track
                   li
-                     a(href="#") Multi-Compare
+                     a(href="#")
+                        del Multi-Compare
                form.navbar-form.navbar-right
                   .form-group
                      .btn-group
