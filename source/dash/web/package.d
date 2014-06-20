@@ -47,6 +47,8 @@ class WebFrontend {
     }
 
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
+        import std.algorithm;
+
         auto machineNames = _results.machineNames;
         auto currentMachine = validatedMachineName(req, machineNames);
 
@@ -109,10 +111,18 @@ class WebFrontend {
         }
         auto baseVersion = findVersion(choice[1], baseOlderThan);
 
-        auto baseResults = _results.resultsForRunConfig(
-            currentMachine, baseVersion._id, choice[0].runConfigName);
-        auto targetResults = _results.resultsForRunConfig(
-            currentMachine, targetVersion._id, choice[1].runConfigName);
+        auto sortedResults(BsonObjectID id, CompilerChoice choice) {
+            auto results = _results.resultsForRunConfig(
+                currentMachine, id, choice.runConfigName);
+            results.sort!((a, b) => a.name < b.name);
+            return results;
+        }
+
+        auto baseResults = sortedResults(baseVersion._id, choice[0]);
+        auto targetResults = sortedResults(targetVersion._id, choice[1]);
+
+        auto commonNames = setIntersection(baseResults.map!(a => a.name),
+            targetResults.map!(a => a.name)).array;
 
         res.render!(
             "compare.dt",
