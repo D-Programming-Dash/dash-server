@@ -40,3 +40,15 @@ block body
                      h3.panel-title Target
                   .panel-body
                      - revisionChooser("target", choice[1], runConfigNames[1]);
+      hr
+      - void compilerDetails(in ref typeof(base) info)
+         pre = info.banner
+         p <em>Reported system signature:</em> #{info.systemInfo}
+      .row
+         .col-sm-6
+            h3 Base Details
+            - compilerDetails(base);
+         .col-sm-6
+            h3 Target Details
+            - compilerDetails(target);
+      p Benchmarks run on #{currentMachine} (#{machineDescription}).

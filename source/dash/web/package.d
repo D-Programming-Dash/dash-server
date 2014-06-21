@@ -1,5 +1,7 @@
 module dash.web;
 
+import db = dash.model.db;
+
 import vibe.d;
 import dash.model.results;
 import dash.web.compiler_choice;
@@ -64,40 +66,8 @@ class WebFrontend {
         auto runConfigNames =
             compilerNames.map!(a => _results.runConfigNames(a)).array;
 
-        auto findVersionId(CompilerChoice choice, SysTime olderThan) {
-            import std.datetime;
-
-            auto number = () => choice.revisionChoice.info.empty ?
-                1 : to!int(choice.revisionChoice.info);
-
-            SysTime timestamp;
-            final switch (choice.revisionChoice.type) with (RevisionChoice.Type) {
-                case current:
-                    return _results.compilerVersionIdByIndex(
-                        currentMachine, choice.compilerName, 0);
-                case previous:
-                    return _results.compilerVersionIdByIndex(
-                        currentMachine, choice.compilerName, number());
-                case day:
-                    timestamp = Clock.currTime - number().days;
-                    break;
-                case week:
-                    timestamp = Clock.currTime - number().weeks;
-                    break;
-                case month:
-                    timestamp = Clock.currTime.add!"months"(-number());
-                    break;
-                case year:
-                    timestamp = Clock.currTime.add!"years"(-number());
-                    break;
-            }
-
-            return _results.compilerVersionIdByTimestamp(currentMachine,
-                choice.compilerName, timestamp, olderThan);
-        }
-
         auto findVersion(CompilerChoice choice, SysTime olderThan = SysTime.init) {
-            auto id = findVersionId(choice, olderThan);
+            auto id = findCompilerVersionId(currentMachine, choice, olderThan);
             return _results.compilerVersionById(currentMachine, id);
         }
 
@@ -124,15 +94,37 @@ class WebFrontend {
         auto commonNames = setIntersection(baseResults.map!(a => a.name),
             targetResults.map!(a => a.name)).array;
 
+        static struct CompilerInfo {
+            string banner;
+            string systemInfo;
+            string[] missingBenchmarks;
+        }
+
+        auto getInfo(db.Result[] results) {
+            CompilerInfo info;
+            info.banner = results[0].envData["compilerBanner"];
+            info.systemInfo = results[0].envData["systemInfo"];
+            info.missingBenchmarks = setDifference(
+                results.map!(a => a.name), commonNames).array;
+            return info;
+        }
+        auto base = getInfo(baseResults);
+        auto target = getInfo(targetResults);
+        auto machineDescription = _results.machineDescription(currentMachine);
+        auto resultsSystemInfo = baseResults[0].envData["systemInfo"];
+
         res.render!(
             "compare.dt",
             compilerNames,
             machineNames,
             currentMachine,
+            machineDescription,
             specifierString,
             choice,
             runConfigNames,
             revisionChoiceNames,
+            base,
+            target,
             req
         );
     }
@@ -176,6 +168,40 @@ private:
         url.put("/compare/");
         choice.write(url);
         res.redirect(url.data);
+    }
+
+    BsonObjectID findCompilerVersionId(string machine,
+        CompilerChoice choice, SysTime olderThan
+    ) {
+        import std.datetime;
+
+        auto number = () => choice.revisionChoice.info.empty ?
+            1 : to!int(choice.revisionChoice.info);
+
+        SysTime timestamp;
+        final switch (choice.revisionChoice.type) with (RevisionChoice.Type) {
+            case current:
+                return _results.compilerVersionIdByIndex(
+                    machine, choice.compilerName, 0);
+            case previous:
+                return _results.compilerVersionIdByIndex(
+                    machine, choice.compilerName, number());
+            case day:
+                timestamp = Clock.currTime - number().days;
+                break;
+            case week:
+                timestamp = Clock.currTime - number().weeks;
+                break;
+            case month:
+                timestamp = Clock.currTime.add!"months"(-number());
+                break;
+            case year:
+                timestamp = Clock.currTime.add!"years"(-number());
+                break;
+        }
+
+        return _results.compilerVersionIdByTimestamp(machine,
+            choice.compilerName, timestamp, olderThan);
     }
 
     /// Maps from revision specification display strings to the internal

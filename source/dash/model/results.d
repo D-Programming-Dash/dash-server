@@ -98,6 +98,11 @@ class Results {
         ]).map!(a => a.deserializeBson!(db.Result)).array;
     }
 
+    string machineDescription(string machineName) {
+        return _db.machines.findOne(["name": machineName],
+            ["description": true])["description"].deserializeBson!string;
+    }
+
 private:
     db.Database _db;
 }
