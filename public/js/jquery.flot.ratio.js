@@ -11,7 +11,8 @@ var FlotRatio = (function () {
                 show: true,
                 horizontal: true,
                 align: 'center',
-                barWidth: options.series.ratio.barWidth || 0.6
+                fill: 1.0,
+                barWidth: options.series.ratio.barWidth || 0.7
             });
 
             var xaxis = options.xaxes[options.series.xaxis - 1 || 0];
@@ -54,7 +55,7 @@ var FlotRatio = (function () {
 
     function xaxisTickFormatter(oldFormatter) {
         return function (val, axis) {
-            val = Math.pow(2, val) + "&thinsp;x";
+            val = "&times;" + Math.pow(2, -val).toPrecision(2);
             return oldFormatter ? oldFormatter(val, axis) : val;
         };
     }

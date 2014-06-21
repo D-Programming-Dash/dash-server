@@ -49,7 +49,7 @@ block body
       hr
 
       - import vibe.data.json;
-      - additionalJsSources ~= [req.rootDir ~ "js/jquery.flot.js", req.rootDir ~ "js/jquery.flot.ratio.js"];
+      - additionalJsSources ~= [req.rootDir ~ "js/jquery.flot.js", req.rootDir ~ "js/jquery.flot.ratio.js", req.rootDir ~ "js/jquery.flot.resize.js"];
       - void j(string s) { additionalJsInline ~= s ~ '\n'; }
       - j("$(function() {");
       - j("var dashBenchmarkNames = " ~ benchmarkNames.release.serializeToJson.toString ~ ";");
@@ -63,9 +63,9 @@ block body
       - j("  for (var i = 0; i < count; ++i) {");
       - j("    data.push([dashBenchmarkNames[i], sample.baseMeans[i], sample.targetMeans[i]]);");
       - j("  }");
-      - j("  var container = $(\"#\" + sample.jsName + \"_chart\");");
+      - j("  var container = $('#' + sample.jsName + '_chart');");
       - j("  container.empty()");
-      - j("  $.plot(container, [{data: data}], {series: {ratio: {show: true} } });");
+      - j("  $.plot(container, [{data: data}], {series: {ratio: {show: true} }, colors: ['#d9230f']});");
       - j("});");
       - j("});");
 
