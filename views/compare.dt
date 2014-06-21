@@ -25,6 +25,12 @@ block body
                - foreach (pair; revisionChoiceNames)
                   option(selected=(pair[1] == spec.revisionChoice.type)) = pair[0]
 
+   - void compilerDetails(typeof(base) info)
+      pre = info.banner
+      p <em>Reported system signature:</em> #{info.systemInfo}
+      - auto m = info.missingBenchmarks;
+      p <em>Missing benchmarks:</em> #{m.empty ? "<none>" : m.join(", ")}
+
    .container
       form.form-horizontal(role="form", method="POST", action="#{req.rootDir}#{currentMachine}/compare", onchange="this.submit()")
          .row
@@ -41,11 +47,10 @@ block body
                   .panel-body
                      - revisionChooser("target", choice[1], runConfigNames[1]);
       hr
-      - void compilerDetails(typeof(base) info)
-         pre = info.banner
-         p <em>Reported system signature:</em> #{info.systemInfo}
-         - auto m = info.missingBenchmarks;
-         p <em>Missing benchmarks:</em> #{m.empty ? "<none>" : m.join(", ")}
+      - foreach (sample; samples)
+         h2 = sample.name
+         div(id="#{sample.jsName}_chart") Loading results…
+      hr
       .row
          .col-sm-6
             h3 Base Details

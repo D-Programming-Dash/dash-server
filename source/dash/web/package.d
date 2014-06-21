@@ -50,7 +50,8 @@ class WebFrontend {
 
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
         import std.algorithm;
-        import std.range : retro;
+        import std.ascii : isAlphaNum;
+        import std.range : assumeSorted, retro;
 
         auto machineNames = _results.machineNames;
         auto currentMachine = validatedMachineName(req, machineNames);
@@ -89,22 +90,49 @@ class WebFrontend {
             // (i.e. if the benchmark has been updated), we only want to use
             // the most recent one.
             results.sort!((a, b) => a.name < b.name, SwapStrategy.stable);
-            return results.retro.uniq!((a, b) => a.name == b.name).retro.array;
+            auto uniqed = results.retro.uniq!((a, b) => a.name == b.name).retro;
+            return uniqed.array.assumeSorted!((a, b) => a.name < b.name);
         }
 
         auto baseResults = sortedResults(baseVersion._id, choice[0]);
         auto targetResults = sortedResults(targetVersion._id, choice[1]);
 
         auto commonNames = setIntersection(baseResults.map!(a => a.name),
-            targetResults.map!(a => a.name)).array;
+            targetResults.map!(a => a.name)).array.assumeSorted;
+
+        // We assume here that every benchmark has the same sample categories.
+        static struct Sample {
+            string name;
+            string jsName;
+            string units;
+            double[][2] means;
+            /+ TODO
+            string[][2] errors;
+            +/
+        }
+        Sample[] samples;
+        if (!baseResults.empty && !targetResults.empty) {
+            foreach (sampleName; baseResults[0].samples.keys) {
+                Sample s;
+                s.name = sampleName;
+                s.jsName = sampleName.filter!(a => a.isAlphaNum).to!string;
+                foreach (i, results; [baseResults, targetResults]) {
+                    static T mean(T)(T[] t) { return reduce!"a + b"(0.0, t) / t.length; }
+                    s.means[i] = results.
+                        filter!(a => commonNames.contains(a.name)).
+                        map!(a => mean(a.samples[sampleName])).array;
+                }
+                samples ~= s;
+            }
+        }
 
         static struct CompilerInfo {
             string banner;
             string systemInfo;
             string[] missingBenchmarks;
         }
-
-        auto getInfo(db.Result[] results, db.Result[] otherResults) {
+        alias R = typeof(baseResults);
+        auto getInfo(R results, R otherResults) {
             CompilerInfo info;
             if (results.empty) {
                 info.banner = "<no benchmark results>";
@@ -119,6 +147,7 @@ class WebFrontend {
         }
         auto base = getInfo(baseResults, targetResults);
         auto target = getInfo(targetResults, baseResults);
+
         auto machineDescription = _results.machineDescription(currentMachine);
 
         res.render!(
@@ -131,6 +160,7 @@ class WebFrontend {
             choice,
             runConfigNames,
             revisionChoiceNames,
+            samples,
             base,
             target,
             req
