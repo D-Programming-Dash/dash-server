@@ -39,7 +39,7 @@ class Results {
             "completed": serializeToBson(true)
         ];
         auto bsonPairs = coll.find(findSpec, ["_id": true], QueryFlags.None,
-            index).sort(["$natural": -1]).limit(1);
+            index).sort(["_id": -1]).limit(1);
         return bsonPairs.front["_id"].deserializeBson!BsonObjectID;
     }
 
