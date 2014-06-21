@@ -3,3 +3,13 @@ body {
   padding-top: 50px;
   padding-bottom: 20px;
 }
+
+.navbar-inverse .btn-default {
+    border: 1px solid white;
+    background: none;
+}
+
+.navbar-inverse .open .dropdown-toggle.btn-default {
+    color: #d9230f;
+    background-color: #fff;
+}
