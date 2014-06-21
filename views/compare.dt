@@ -41,9 +41,11 @@ block body
                   .panel-body
                      - revisionChooser("target", choice[1], runConfigNames[1]);
       hr
-      - void compilerDetails(in ref typeof(base) info)
+      - void compilerDetails(typeof(base) info)
          pre = info.banner
          p <em>Reported system signature:</em> #{info.systemInfo}
+         - auto m = info.missingBenchmarks;
+         p <em>Missing benchmarks:</em> #{m.empty ? "<none>" : m.join(", ")}
       .row
          .col-sm-6
             h3 Base Details
