@@ -79,7 +79,7 @@ class WebFrontend {
         ) {
             baseOlderThan = targetVersion.update.timestamp;
         }
-        auto baseVersion = findVersion(choice[1], baseOlderThan);
+        auto baseVersion = findVersion(choice[0], baseOlderThan);
 
         auto sortedResults(BsonObjectID id, CompilerChoice choice) {
             auto results = _results.resultsForRunConfig(
