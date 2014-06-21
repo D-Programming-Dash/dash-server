@@ -68,9 +68,8 @@ class Results {
             "completed": serializeToBson(true)
         ];
         if (olderThan != SysTime.init) {
-            findSpec["$lt"] = [
-                "update.timestamp": targetTime
-            ].serializeToBson;
+            findSpec["update.timestamp"] =
+                ["$lt": olderThan].serializeToBson;
         }
         auto bsonPairs = coll.find(findSpec,
             ["_id": true, "update.timestamp": true]);
