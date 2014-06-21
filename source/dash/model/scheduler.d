@@ -240,13 +240,6 @@ class Scheduler {
                 assert(found);
                 return result;
             }
-
-            // If there haven't acutally been any run configs, immediately set
-            // the "completed" flag, as we won't get around to doing this in a
-            // client callback. Not that it would matter much – for optimization
-            // purposes, it might even be better to leave it off entirely as
-            // there will be no associated results to load anyway.
-            markCompilerVersionCompleted(machineName, compilerVersionId);
         }
 
         // Nothing to do for the client.
