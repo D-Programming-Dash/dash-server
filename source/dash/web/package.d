@@ -50,6 +50,7 @@ class WebFrontend {
 
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
         import std.algorithm;
+        import std.range : retro;
 
         auto machineNames = _results.machineNames;
         auto currentMachine = validatedMachineName(req, machineNames);
@@ -84,8 +85,11 @@ class WebFrontend {
         auto sortedResults(BsonObjectID id, CompilerChoice choice) {
             auto results = _results.resultsForRunConfig(
                 currentMachine, id, choice.runConfigName);
-            results.sort!((a, b) => a.name < b.name);
-            return results;
+            // If results from multiple runs of a given benchmark are available
+            // (i.e. if the benchmark has been updated), we only want to use
+            // the most recent one.
+            results.sort!((a, b) => a.name < b.name, SwapStrategy.stable);
+            return results.retro.uniq!((a, b) => a.name == b.name).retro.array;
         }
 
         auto baseResults = sortedResults(baseVersion._id, choice[0]);
