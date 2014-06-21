@@ -28,6 +28,12 @@ class Results {
         return result["runConfigs"].get!(Bson[]).map!(a => a["name"].get!string).array;
     }
 
+    /**
+     * Returns the n-th newest version of the given compiler for which all
+     * the tests have been attempted.
+     *
+     * If no such version exists, BsonObjectID.init is returned.
+     */
     BsonObjectID compilerVersionIdByIndex(string machineName,
         string compilerName, int index
     ) {
@@ -40,9 +46,17 @@ class Results {
         ];
         auto bsonPairs = coll.find(findSpec, ["_id": true], QueryFlags.None,
             index).sort(["_id": -1]).limit(1);
+        if (bsonPairs.empty) return typeof(return).init;
         return bsonPairs.front["_id"].deserializeBson!BsonObjectID;
     }
 
+    /**
+     * Returns the version of the given compiler whose timestamp is closest
+     * to the given target time. If olderThan is given, it must be strictly
+     * older than the given timestamp.
+     *
+     * If no such version exists, BsonObjectID.init is returned.
+     */
     BsonObjectID compilerVersionIdByTimestamp(string machineName,
         string compilerName, SysTime targetTime,
         SysTime olderThan = SysTime.init
@@ -60,6 +74,7 @@ class Results {
         }
         auto bsonPairs = coll.find(findSpec,
             ["_id": true, "update.timestamp": true]);
+        if (bsonPairs.empty) return typeof(return).init;
         auto pairs = bsonPairs.map!(
             a => tuple(a["_id"].deserializeBson!BsonObjectID,
             a["update"]["timestamp"].deserializeBson!SysTime));

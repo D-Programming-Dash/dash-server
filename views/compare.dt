@@ -25,12 +25,6 @@ block body
                - foreach (pair; revisionChoiceNames)
                   option(selected=(pair[1] == spec.revisionChoice.type)) = pair[0]
 
-   - void compilerDetails(typeof(base) info)
-      pre = info.banner
-      p <em>Reported system signature:</em> #{info.systemInfo}
-      - auto m = info.missingBenchmarks;
-      p <em>Missing benchmarks:</em> #{m.empty ? "<none>" : m.join(", ")}
-
    .container
       form.form-horizontal(role="form", method="POST", action="#{req.rootDir}#{currentMachine}/compare", onchange="this.submit()")
          .row
@@ -47,37 +41,4 @@ block body
                   .panel-body
                      - revisionChooser("target", choice[1], runConfigNames[1]);
       hr
-
-      - import vibe.data.json;
-      - additionalJsSources ~= [req.rootDir ~ "js/jquery.flot.js", req.rootDir ~ "js/jquery.flot.ratio.js", req.rootDir ~ "js/jquery.flot.resize.js"];
-      - void j(string s) { additionalJsInline ~= s ~ '\n'; }
-      - j("$(function() {");
-      - j("var dashBenchmarkNames = " ~ benchmarkNames.release.serializeToJson.toString ~ ";");
-      - j("var dashCompareSamples = [];");
-      - foreach (sample; samples)
-         h2 = sample.name
-         div(id="#{sample.jsName}_chart", style="width: 100%; height: #{benchmarkNames.length * 1.3}em;") Loading results…
-         - j("dashCompareSamples.push(" ~ sample.serializeToJson.toString ~ ");");
-      - j("dashCompareSamples.forEach(function(sample) {");
-      - j("  var data = [], count = dashBenchmarkNames.length;");
-      - j("  for (var i = 0; i < count; ++i) {");
-      - j("    data.push([dashBenchmarkNames[i], sample.baseMeans[i], sample.targetMeans[i]]);");
-      - j("  }");
-      - j("  var container = $('#' + sample.jsName + '_chart');");
-      - j("  container.empty()");
-      - j("  $.plot(container, [{data: data}], {series: {ratio: {show: true} }, colors: ['#d9230f']});");
-      - j("});");
-      - j("});");
-
-      hr
-      .row
-         .col-sm-6
-            h3 Base Details
-            - compilerDetails(base);
-         .col-sm-6
-            h3 Target Details
-            - compilerDetails(target);
-      p Benchmarks run on #{currentMachine} (#{machineDescription}).
-
-      //if lte IE 8
-         script(src="#{req.rootDir}/js/excanvas.min.js")
+      block main

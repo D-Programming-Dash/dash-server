@@ -1,0 +1,5 @@
+extends compare
+
+block main
+    div.alert.alert-danger
+        p No suitable <strong>#{notFoundName} version</strong> found. Please change your selection and try again.

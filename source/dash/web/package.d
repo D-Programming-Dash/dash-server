@@ -52,6 +52,7 @@ class WebFrontend {
         import std.algorithm;
         import std.ascii : isAlphaNum;
         import std.range : assumeSorted, retro;
+        import std.typecons : Nullable;
 
         auto machineNames = _results.machineNames;
         auto currentMachine = validatedMachineName(req, machineNames);
@@ -68,12 +69,37 @@ class WebFrontend {
         auto runConfigNames =
             compilerNames.map!(a => _results.runConfigNames(a)).array;
 
-        auto findVersion(CompilerChoice choice, SysTime olderThan = SysTime.init) {
+        Nullable!(db.CompilerVersion) findVersion(CompilerChoice choice,
+            SysTime olderThan = SysTime.init
+        ) {
+            typeof(return) result;
             auto id = findCompilerVersionId(currentMachine, choice, olderThan);
-            return _results.compilerVersionById(currentMachine, id);
+            if (id != BsonObjectID.init) {
+                result = _results.compilerVersionById(currentMachine, id);
+            }
+            return result;
+        }
+
+        void renderNotFound(string notFoundName) {
+            res.render!(
+                "compare_notfound.dt",
+                req,
+                compilerNames,
+                machineNames,
+                currentMachine,
+                specifierString,
+                revisionChoiceNames,
+                runConfigNames,
+                choice,
+                notFoundName
+            );
         }
 
         auto targetVersion = findVersion(choice[1]);
+        if (targetVersion.isNull) {
+            renderNotFound("target");
+            return;
+        }
 
         SysTime baseOlderThan;
         if (choice[0].compilerName == choice[1].compilerName &&
@@ -82,6 +108,10 @@ class WebFrontend {
             baseOlderThan = targetVersion.update.timestamp;
         }
         auto baseVersion = findVersion(choice[0], baseOlderThan);
+        if (baseVersion.isNull) {
+            renderNotFound("base");
+            return;
+        }
 
         auto sortedResults(BsonObjectID id, CompilerChoice choice) {
             auto results = _results.resultsForRunConfig(
@@ -155,20 +185,20 @@ class WebFrontend {
         auto machineDescription = _results.machineDescription(currentMachine);
 
         res.render!(
-            "compare.dt",
+            "compare_results.dt",
+            req,
             compilerNames,
             machineNames,
             currentMachine,
-            machineDescription,
             specifierString,
-            choice,
-            runConfigNames,
             revisionChoiceNames,
+            runConfigNames,
+            choice,
+            machineDescription,
             benchmarkNames,
             samples,
             base,
-            target,
-            req
+            target
         );
     }
 
