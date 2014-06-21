@@ -104,18 +104,22 @@ class WebFrontend {
             string[] missingBenchmarks;
         }
 
-        auto getInfo(db.Result[] results) {
+        auto getInfo(db.Result[] results, db.Result[] otherResults) {
             CompilerInfo info;
-            info.banner = results[0].envData["compilerBanner"];
-            info.systemInfo = results[0].envData["systemInfo"];
+            if (results.empty) {
+                info.banner = "<no benchmark results>";
+                info.systemInfo = "<no benchmark results>";
+            } else {
+                info.banner = results[0].envData["compilerBanner"];
+                info.systemInfo = results[0].envData["systemInfo"];
+            }
             info.missingBenchmarks = setDifference(
-                results.map!(a => a.name), commonNames).array;
+                otherResults.map!(a => a.name), commonNames).array;
             return info;
         }
-        auto base = getInfo(baseResults);
-        auto target = getInfo(targetResults);
+        auto base = getInfo(baseResults, targetResults);
+        auto target = getInfo(targetResults, baseResults);
         auto machineDescription = _results.machineDescription(currentMachine);
-        auto resultsSystemInfo = baseResults[0].envData["systemInfo"];
 
         res.render!(
             "compare.dt",
