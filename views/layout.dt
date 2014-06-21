@@ -36,12 +36,17 @@ html
                            - foreach (name; machineNames)
                               li(role="presentation")
                                  a(role="menuitem", href="#") = name
+      - string[] additionalJsSources;
+      - string additionalJsInline;
       block body
       .container
          hr
          footer
             p
                a(href="http://github.com/D-Programming-Dash") Source code on GitHub
-
       script(src="//code.jquery.com/jquery-1.11.1.min.js")
       script(src="#{req.rootDir}js/bootstrap.min.js")
+      - foreach (s; additionalJsSources)
+         script(src="#{s}")
+      - if (!additionalJsInline.empty)
+         script!= additionalJsInline

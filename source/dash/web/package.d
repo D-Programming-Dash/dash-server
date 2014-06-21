@@ -97,29 +97,33 @@ class WebFrontend {
         auto baseResults = sortedResults(baseVersion._id, choice[0]);
         auto targetResults = sortedResults(targetVersion._id, choice[1]);
 
-        auto commonNames = setIntersection(baseResults.map!(a => a.name),
+        // Common benchmark names, exported to JS.
+        auto benchmarkNames = setIntersection(baseResults.map!(a => a.name),
             targetResults.map!(a => a.name)).array.assumeSorted;
 
-        // We assume here that every benchmark has the same sample categories.
+        // Sample information, exported to JS.
         static struct Sample {
             string name;
             string jsName;
             string units;
-            double[][2] means;
+            // The JSON serializer doesn't like static arrays.
+            double[] baseMeans;
+            double[] targetMeans;
             /+ TODO
             string[][2] errors;
             +/
         }
         Sample[] samples;
         if (!baseResults.empty && !targetResults.empty) {
+            // We assume here that every benchmark has the same sample categories.
             foreach (sampleName; baseResults[0].samples.keys) {
                 Sample s;
                 s.name = sampleName;
                 s.jsName = sampleName.filter!(a => a.isAlphaNum).to!string;
                 foreach (i, results; [baseResults, targetResults]) {
                     static T mean(T)(T[] t) { return reduce!"a + b"(0.0, t) / t.length; }
-                    s.means[i] = results.
-                        filter!(a => commonNames.contains(a.name)).
+                    ((i == 0) ? s.baseMeans : s.targetMeans) = results.
+                        filter!(a => benchmarkNames.contains(a.name)).
                         map!(a => mean(a.samples[sampleName])).array;
                 }
                 samples ~= s;
@@ -142,7 +146,7 @@ class WebFrontend {
                 info.systemInfo = results[0].envData["systemInfo"];
             }
             info.missingBenchmarks = setDifference(
-                otherResults.map!(a => a.name), commonNames).array;
+                otherResults.map!(a => a.name), benchmarkNames).array;
             return info;
         }
         auto base = getInfo(baseResults, targetResults);
@@ -160,6 +164,7 @@ class WebFrontend {
             choice,
             runConfigNames,
             revisionChoiceNames,
+            benchmarkNames,
             samples,
             base,
             target,
