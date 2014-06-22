@@ -1,4 +1,4 @@
-var FlotRatio = (function () {
+(function ($) {
     function init(plot) {
         plot.hooks.processOptions.push(processOptions);
     }
@@ -33,10 +33,11 @@ var FlotRatio = (function () {
         }
     }
 
-    function processRawData(plot, series, datapoints) {
-        series.data = $.map(series.data, function (d) {
+    function processRawData(plot, series, data, datapoints) {
+        series.data = $.map(data, function (d) {
             return [[d[0], Math.log(d[1] / d[2]) / Math.log(2)]];
         });
+
         adjustXExtent(series.data, plot.getOptions());
         addMeanLine(series.data, plot.getOptions());
         extractYTicks(series.data, plot.ratioCategoryNames);
@@ -102,15 +103,9 @@ var FlotRatio = (function () {
         }
     }
 
-    return {
-        init: init
-    }
-}());
-
-(function ($) {
     $.plot.plugins.push({
-        init: FlotRatio.init,
-        name: "Ratio",
-        version: "0.0.1"
+        init: init,
+        name: 'ratio',
+        version: '0.0.1'
     });
 })(jQuery);
