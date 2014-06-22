@@ -6,22 +6,36 @@ import vibe.d;
 import dash.model.results;
 import dash.web.compiler_choice;
 
+///
 struct SampleConfig {
+    /// The identifier of the sample in the database (e.g. "run.totalSeconds").
     string dbName;
+
+    /// The pretty name used to display the sample in the web UI.
     string displayName;
+
+    /// The units the results are in, for display in the UI (e.g. "s").
     string units;
 }
 
+///
 struct Config {
+    ///
     SampleConfig[] samples;
 }
 
+///
 class WebFrontend {
+    ///
     this (Config config, Results results) {
         _config = config;
         _results = results;
     }
 
+    /**
+     * Registers the web UI pages with the passed router instance, based in the
+     * root directory.
+     */
     void registerRoutes(URLRouter r) {
         r.get("/", &getHome);
         r.get("/:machineName/compare", &getCompareIndex);
@@ -30,6 +44,9 @@ class WebFrontend {
         r.get("*", serveStaticFiles("./public"));
     }
 
+    /**
+     * Displays the main landing page.
+     */
     void getHome(HTTPServerRequest req, HTTPServerResponse res) {
         auto machineNames = _results.machineNames;
         auto defaultMachine = "<none>";
@@ -37,11 +54,17 @@ class WebFrontend {
         renderStatic!"home.dt"(req, res, defaultMachine);
     }
 
+    /**
+     * Redirects the user to the default one-to-one comparison page for the
+     * chosen machine.
+     *
+     * Currently, the chocie is based on the order of the (otherwise
+     * insignificant) order of the database entires, although it might be a
+     * good idea to make this configurable in the future.
+     */
     void getCompareIndex(HTTPServerRequest req, HTTPServerResponse res) {
         auto currentMachine = validatedMachineName(req);
 
-        // Redirect client to arbitrary default compiler choice. Might want to
-        // make this configurable in the future.
         auto compilers = _results.compilerNames;
         enforceHTTP(!compilers.empty, HTTPStatus.notFound);
         auto defaultCompiler = compilers[0];
@@ -59,11 +82,17 @@ class WebFrontend {
         redirectToCompare(req, res, currentMachine, choice);
     }
 
+    /**
+     * Renders the one-to-one comparison results chosen by the request URL.
+     */
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
         import std.algorithm;
         import std.ascii : isAlphaNum;
         import std.range : assumeSorted, retro;
         import std.typecons : Nullable;
+
+        // First, validate the passed comparison specifier and fetch the
+        // information needed to display the comparison chooser.
 
         auto machineNames = _results.machineNames;
         auto currentMachine = validatedMachineName(req, machineNames);
@@ -79,6 +108,10 @@ class WebFrontend {
 
         auto runConfigNames =
             compilerNames.map!(a => _results.runConfigNames(a)).array;
+
+        // Now, try to map the user's compiler choices to a compiler version id
+        // we can use to look up the results. Display a nice error page if no
+        // suitable version exists.
 
         Nullable!(db.CompilerVersion) findVersion(CompilerChoice choice,
             SysTime olderThan = SysTime.init
@@ -123,6 +156,9 @@ class WebFrontend {
             renderNotFound("base");
             return;
         }
+
+        // We have our two compiler versions. Fetch the results from the
+        // database and derive the representation exported to the JS UI.
 
         auto sortedResults(BsonObjectID id, CompilerChoice choice) {
             auto results = _results.resultsForRunConfig(
@@ -176,6 +212,9 @@ class WebFrontend {
             }
         }
 
+        // Prepare the compiler version details for the bottom of the results
+        // page.
+
         static struct CompilerInfo {
             string banner;
             string systemInfo;
@@ -218,6 +257,13 @@ class WebFrontend {
         );
     }
 
+    /**
+     * Redirects the user to the GET URL corresponding to the one-to-one
+     * comparison results chosen by the submitted form data.
+     *
+     * In the future, this might be moved into JS client side logic to save one
+     * HTTP roundtrip.
+     */
     void postCompare(HTTPServerRequest req, HTTPServerResponse res) {
         auto currentMachine = validatedMachineName(req);
 
@@ -293,21 +339,6 @@ private:
             choice.compilerName, timestamp, olderThan);
     }
 
-    /// Maps from revision specification display strings to the internal
-    /// representation.
-    ///
-    /// Currently, only a subset of types is implemented, and no means for
-    /// specifying the additional info are provided.
-    import std.typecons : Tuple;
-    static immutable revisionChoiceNames = [
-        tuple("Current", RevisionChoice.Type.current),
-        tuple("Previous", RevisionChoice.Type.previous),
-        tuple("1 day ago", RevisionChoice.Type.day),
-        tuple("1 week ago", RevisionChoice.Type.week),
-        tuple("1 month ago", RevisionChoice.Type.month),
-        tuple("1 year ago", RevisionChoice.Type.year)
-    ];
-
     void renderStatic(string templateFile)(
         HTTPServerRequest req,
         HTTPServerResponse res,
@@ -329,6 +360,20 @@ private:
         enforceHTTP(machineNames.canFind(name), HTTPStatus.notFound);
         return name;
     }
+
+    /// Maps from revision specification display strings to the internal
+    /// representation.
+    ///
+    /// Currently, only a subset of types is implemented, and no means for
+    /// specifying the additional info are provided.
+    static immutable revisionChoiceNames = [
+        tuple("Current", RevisionChoice.Type.current),
+        tuple("Previous", RevisionChoice.Type.previous),
+        tuple("1 day ago", RevisionChoice.Type.day),
+        tuple("1 week ago", RevisionChoice.Type.week),
+        tuple("1 month ago", RevisionChoice.Type.month),
+        tuple("1 year ago", RevisionChoice.Type.year)
+    ];
 
     Config _config;
     Results _results;
