@@ -207,12 +207,27 @@ class Scheduler {
         foreach (artifact; outdatedByTimestamp(ArtifactType.compiler)) {
             auto compiler = compilerByName(artifact.name);
 
-            auto compilerVersionId = BsonObjectID.generate;
-            db.CompilerVersion compilerVersion;
-            compilerVersion._id = compilerVersionId;
-            compilerVersion.name = artifact.name;
-            compilerVersion.update = artifact.lastUpdate;
-            _db.compilerVersions(machineName).insert(compilerVersion);
+            // See if we already ran an updated benchmark with this compiler
+            // version (happens if the compiler is new), and thus have already
+            // allocated a version id. We will still run that benchmark(s) for
+            // a second time in the below, but this does no harm other than a
+            // bit of duplicated work.
+            auto existingVersion = _db.compilerVersions(machineName).findOne([
+                "name": serializeToBson(compiler.name),
+                "update": serializeToBson(artifact.lastUpdate)
+            ], ["_id": true]);
+
+            BsonObjectID compilerVersionId;
+            if (!existingVersion.isNull) {
+                existingVersion["_id"].deserializeBson(compilerVersionId);
+            } else {
+                compilerVersionId = BsonObjectID.generate;
+                db.CompilerVersion compilerVersion;
+                compilerVersion._id = compilerVersionId;
+                compilerVersion.name = artifact.name;
+                compilerVersion.update = artifact.lastUpdate;
+                _db.compilerVersions(machineName).insert(compilerVersion);
+            }
 
             auto bundleIdsToRun = _versionedArtifacts.byValue.filter!(
                 a => a.type == ArtifactType.benchmarkBundle
