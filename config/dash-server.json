@@ -3,5 +3,29 @@
     "mongoDBDatabase": "dash",
     "caCertPath": "dash-rootca.crt",
     "certPath": "dash-server.crt",
-    "privateKeyPath": "dash-server.key"
+    "privateKeyPath": "dash-server.key",
+    "web": {
+        "samples": [
+            {
+                "dbName": "run.totalSeconds",
+                "displayName": "Execution Time",
+                "units": "s"
+            },
+            {
+                "dbName": "build.exeSizeBytes",
+                "displayName": "Executable Size",
+                "units": "kB"
+            },
+            {
+                "dbName": "build.totalSeconds",
+                "displayName": "Build Duration",
+                "units": "s"
+            },
+            {
+                "dbName": "build.maxMemKB",
+                "displayName": "Build Peak Memory Usage",
+                "units": "kB"
+            }
+        ]
+    }
 }

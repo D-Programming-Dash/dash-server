@@ -3,11 +3,12 @@ import vibe.d;
 shared static this() {
     import api = dash.api;
     import file = std.file;
+    import web = dash.web;
     import dash.model.db;
     import dash.model.results;
     import dash.model.scheduler;
-    import dash.web;
     import std.algorithm;
+    import std.conv : text;
     import std.path : absolutePath;
     import std.string : format;
     import thrift.codegen.processor;
@@ -40,6 +41,16 @@ shared static this() {
     immutable caCertPath = configPath("caCertPath");
     immutable certPath = configPath("certPath");
     immutable privateKeyPath = configPath("privateKeyPath");
+
+    auto webJson = serverConfig["web"];
+    enforce(webJson.type == Json.Type.object,
+        "Expected aggregate config key 'web'.");
+    web.Config webConfig;
+    try {
+        deserializeJson(webConfig, webJson);
+    } catch (Exception e) {
+        throw new Exception(text("Error while parsing web config: ", e));
+    }
 
     auto db = new Database(connectMongoDB(dbHost).getDatabase(dbName));
     auto scheduler = new Scheduler(db);
@@ -108,7 +119,7 @@ shared static this() {
     settings.port = 8080;
     settings.bindAddresses = ["::1", "127.0.0.1"];
     auto router = new URLRouter;
-    auto webFrontend = new WebFrontend(results);
+    auto webFrontend = new web.WebFrontend(webConfig, results);
     webFrontend.registerRoutes(router);
     listenHTTP(settings, router);
 }

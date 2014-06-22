@@ -6,8 +6,19 @@ import vibe.d;
 import dash.model.results;
 import dash.web.compiler_choice;
 
+struct SampleConfig {
+    string dbName;
+    string displayName;
+    string units;
+}
+
+struct Config {
+    SampleConfig[] samples;
+}
+
 class WebFrontend {
-    this (Results results) {
+    this (Config config, Results results) {
+        _config = config;
         _results = results;
     }
 
@@ -145,16 +156,21 @@ class WebFrontend {
         }
         Sample[] samples;
         if (!baseResults.empty && !targetResults.empty) {
-            // We assume here that every benchmark has the same sample categories.
-            foreach (sampleName; baseResults[0].samples.keys) {
+            foreach (c; _config.samples) {
+                // We assume here that every benchmark from one run has the
+                // same sample categories. Might want to revisit for tailored
+                // reporting later.
+                if (c.dbName !in baseResults[0].samples) continue;
+                if (c.dbName !in targetResults[0].samples) continue;
+
                 Sample s;
-                s.name = sampleName;
-                s.jsName = sampleName.filter!(a => a.isAlphaNum).to!string;
+                s.name = c.displayName;
+                s.jsName = c.dbName.filter!(a => a.isAlphaNum).to!string;
                 foreach (i, results; [baseResults, targetResults]) {
                     static T mean(T)(T[] t) { return reduce!"a + b"(0.0, t) / t.length; }
                     ((i == 0) ? s.baseMeans : s.targetMeans) = results.
                         filter!(a => benchmarkNames.contains(a.name)).
-                        map!(a => mean(a.samples[sampleName])).array;
+                        map!(a => mean(a.samples[c.dbName])).array;
                 }
                 samples ~= s;
             }
@@ -314,5 +330,6 @@ private:
         return name;
     }
 
+    Config _config;
     Results _results;
 }
