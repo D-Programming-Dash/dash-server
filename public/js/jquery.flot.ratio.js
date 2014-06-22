@@ -1,49 +1,46 @@
 (function ($) {
     function init(plot) {
-        plot.hooks.processOptions.push(processOptions);
-    }
-
-    function processOptions(plot, options) {
-        plot.ratioCategoryNames = [];
-
-        if (options.series.ratio && options.series.ratio.show) {
-            $.extend(options.series.bars, {
-                show: true,
-                horizontal: true,
-                align: 'center',
-                fill: 1.0,
-                barWidth: options.series.ratio.barWidth || 0.7
-            });
-
-            var xaxis = options.xaxes[options.series.xaxis - 1 || 0];
-            $.extend(xaxis, {
-                tickFormatter: xaxisTickFormatter(xaxis.tickFormatter)
-            });
-
-            var yaxis = options.yaxes[options.series.yaxis - 1 || 0];
-            $.extend(yaxis, {
-                // Invert order so that rows are ordered (from top to bottom)
-                // in the way we received them.
-                transform: function (y) { return -y; },
-                ticks: plot.ratioCategoryNames
-            });
-
-            plot.hooks.processRawData.push(processRawData);
-            plot.hooks.processDatapoints.push(processDatapoints);
-        }
+        plot.hooks.processRawData.push(processRawData);
+        plot.hooks.processDatapoints.push(processDatapoints);
     }
 
     function processRawData(plot, series, data, datapoints) {
+        if (!(series.ratio && series.ratio.show)) return;
+
+        plot.ratioCategoryNames = [];
+        options = plot.getOptions();
+        $.extend(series.bars, {
+            show: true,
+            horizontal: true,
+            align: 'center',
+            fill: 1.0,
+            barWidth: series.ratio.barWidth || 0.7
+        });
+
+        var xaxis = options.xaxes[series.xaxis - 1 || 0];
+        $.extend(xaxis, {
+            tickFormatter: xaxisTickFormatter(xaxis.tickFormatter)
+        });
+
+        var yaxis = options.yaxes[series.yaxis - 1 || 0];
+        $.extend(yaxis, {
+            // Invert order so that rows are ordered (from top to bottom)
+            // in the way we received them.
+            transform: function (y) { return -y; },
+            ticks: plot.ratioCategoryNames
+        });
+
         series.data = $.map(data, function (d) {
             return [[d[0], Math.log(d[1] / d[2]) / Math.log(2)]];
         });
 
-        adjustXExtent(series.data, plot.getOptions());
-        addMeanLine(series.data, plot.getOptions());
+        adjustXExtent(series.data, options);
+        addMeanLine(series.data, options);
         extractYTicks(series.data, plot.ratioCategoryNames);
     }
 
     function processDatapoints(plot, series, datapoints) {
+        if (!(series.ratio && series.ratio.show)) return;
         var swapped = [], points = datapoints.points;
 
         for (var i = 0, len = points.length; i < len; i += datapoints.format.length) {
@@ -80,12 +77,12 @@
         // TODO: Don't overwrite existing options here.
         options.grid.markings = [
             {
-                color: '#811',
+                color: '#911',
                 lineWidth: 1,
                 xaxis: {from: mean, to: mean}
             },
             {
-                color: '#999',
+                color: '#777',
                 lineWidth: 1,
                 xaxis: {from: 0.0, to: 0.0}
             }

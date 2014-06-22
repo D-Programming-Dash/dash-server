@@ -88,7 +88,8 @@ class WebFrontend {
     void getCompare(HTTPServerRequest req, HTTPServerResponse res) {
         import std.algorithm;
         import std.ascii : isAlphaNum;
-        import std.range : assumeSorted, retro;
+        import std.math;
+        import std.range : assumeSorted, retro, sequence, zip;
         import std.typecons : Nullable;
 
         // First, validate the passed comparison specifier and fetch the
@@ -186,9 +187,8 @@ class WebFrontend {
             // The JSON serializer doesn't like static arrays.
             double[] baseMeans;
             double[] targetMeans;
-            /+ TODO
-            string[][2] errors;
-            +/
+            double[] baseStdDevs;
+            double[] targetStdDevs;
         }
         Sample[] samples;
         if (!baseResults.empty && !targetResults.empty) {
@@ -202,12 +202,37 @@ class WebFrontend {
                 Sample s;
                 s.name = c.displayName;
                 s.jsName = c.dbName.filter!(a => a.isAlphaNum).to!string;
-                foreach (i, results; [baseResults, targetResults]) {
-                    static T mean(T)(T[] t) { return reduce!"a + b"(0.0, t) / t.length; }
-                    ((i == 0) ? s.baseMeans : s.targetMeans) = results.
+
+                void calcStats(typeof(baseResults) results,
+                    out double[] means, out double[] stdDevs
+                ) {
+                    auto displayedValues = results.
                         filter!(a => benchmarkNames.contains(a.name)).
-                        map!(a => mean(a.samples[c.dbName])).array;
+                        map!(a => a.samples[c.dbName]);
+
+                    static calcMean(T)(T t) { return reduce!"a + b"(0.0, t) / t.length; }
+                    means = displayedValues.map!calcMean.array;
+
+                    stdDevs = new double[means.length];
+                    foreach (i, values, mean; zip(sequence!"n", displayedValues, means)) {
+                        immutable n = values.length;
+                        if (n <= 1) {
+                            stdDevs = null;
+                            return;
+                        }
+                        immutable var = reduce!((a, b) => a + (b - mean)^^2)(0.0, values);
+                        // Mean of standard deviation. This should at least be
+                        // scaled with the Student t factor, but even that is a
+                        // somewhat pointless exercise given the non-Gaussian
+                        // distribution of benchmark timings. Need to think
+                        // about the best way of reporting the statistical
+                        // properties.
+                        stdDevs[i] = sqrt(var / (n - 1) / n);
+                    }
                 }
+                calcStats(baseResults, s.baseMeans, s.baseStdDevs);
+                calcStats(targetResults, s.targetMeans, s.targetStdDevs);
+
                 samples ~= s;
             }
         }
