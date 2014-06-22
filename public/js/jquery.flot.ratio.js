@@ -37,8 +37,9 @@ var FlotRatio = (function () {
         series.data = $.map(series.data, function (d) {
             return [[d[0], Math.log(d[1] / d[2]) / Math.log(2)]];
         });
-        fixXaxis(series.data, plot.getOptions());
-        fixYaxis(series.data, plot.ratioCategoryNames);
+        adjustXExtent(series.data, plot.getOptions());
+        addMeanLine(series.data, plot.getOptions());
+        extractYTicks(series.data, plot.ratioCategoryNames);
     }
 
     function processDatapoints(plot, series, datapoints) {
@@ -60,16 +61,37 @@ var FlotRatio = (function () {
         };
     }
 
-    function fixXaxis(data, options) {
-        var extent = data.reduce(function(max, arr) { 
-            return Math.max(max, Math.abs(arr[1])); 
+    function adjustXExtent(data, options) {
+        // TODO: Builtin reduce requires a recent browser.
+        var extent = data.reduce(function(max, arr) {
+            return Math.max(max, Math.abs(arr[1]));
         }, 1);
-        console.log(extent);
         options.xaxes[0].min = -extent;
         options.xaxes[0].max = extent;
     }
 
-    function fixYaxis(data, yaxisTicks) {
+    function addMeanLine(data, options) {
+        // TODO: Builtin reduce requires a recent browser.
+        var sum = data.reduce(function(sum, arr) {
+            return sum + arr[1];
+        }, 0);
+        var mean = sum / data.length;
+        // TODO: Don't overwrite existing options here.
+        options.grid.markings = [
+            {
+                color: '#811',
+                lineWidth: 1,
+                xaxis: {from: mean, to: mean}
+            },
+            {
+                color: '#999',
+                lineWidth: 1,
+                xaxis: {from: 0.0, to: 0.0}
+            }
+        ];
+    }
+
+    function extractYTicks(data, yaxisTicks) {
         var i, len;
         for (i = 0, len = data.length; i < len; i += 1) {
             yaxisTicks.push([i, data[i][0]]);
