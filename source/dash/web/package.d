@@ -213,6 +213,10 @@ class WebFrontend {
                     static calcMean(T)(T t) { return reduce!"a + b"(0.0, t) / t.length; }
                     means = displayedValues.map!calcMean.array;
 
+                    // Calculate standard deviations. The reason for writing
+                    // this in such a convoluted way is that we want to
+                    // completely omit writing them in case some values are
+                    // present only once.
                     stdDevs = new double[means.length];
                     foreach (i, values, mean; zip(sequence!"n", displayedValues, means)) {
                         immutable n = values.length;
@@ -221,6 +225,7 @@ class WebFrontend {
                             return;
                         }
                         immutable var = reduce!((a, b) => a + (b - mean)^^2)(0.0, values);
+
                         // Mean of standard deviation. This should at least be
                         // scaled with the Student t factor, but even that is a
                         // somewhat pointless exercise given the non-Gaussian
