@@ -9,7 +9,7 @@ block main
    - j("  var samples = [];");
    - foreach (sample; samples)
       h2 = sample.name
-      div(id="#{sample.jsName}_chart", style="width: 100%; height: #{benchmarkNames.length * 1.3}em;") Loading results…
+      div(id="#{sample.jsName}_chart", style="width: 100%; height: #{benchmarkNames.length * 1.3 + 1.5}em;") Loading results…
       - j("  samples.push(" ~ sample.serializeToJson.toString ~ ");");
    - j("  samples.forEach(function(s) {");
    - j("    var container = $('#' + s.jsName + '_chart');");
