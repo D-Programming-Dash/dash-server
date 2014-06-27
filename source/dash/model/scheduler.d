@@ -265,8 +265,12 @@ class Scheduler {
         import std.algorithm;
         import std.range;
 
+        enforceValidName(machineName);
+        auto pendingBenchmarks = _db.pendingBenchmarks(machineName);
+
         auto pendingId = BsonObjectID.fromString(apiResult.taskId);
-        auto pending = pendingBenchmarkById(machineName, pendingId);
+        auto pending = pendingBenchmarks.findOne(["_id": pendingId]).
+            deserializeBson!(db.PendingBenchmark);
 
         bool hadErrors = false;
         foreach (test; apiResult.tests) {
@@ -289,11 +293,23 @@ class Scheduler {
             result.envData = apiResult.testEnvData;
             _db.results(machineName).insert(result);
         }
-        if (!hadErrors) {
-            // Keep pendingBenchmark record around if there were errors so we
-            // can offer a "repeat" functionality for transient issues in the
-            // future.
-            markPendingBenchmarkFinished(machineName, apiResult.taskId);
+
+        // Keep pendingBenchmark record around if there were errors so we
+        // can offer a "repeat" functionality for transient issues in the
+        // future. Otherwise, remove it.
+        if (!hadErrors) pendingBenchmarks.remove(["_id": pendingId]);
+
+        // If this was the last test to be run, mark the compiler version as
+        // completed.
+        immutable done = pendingBenchmarks.find([
+            "attempted": false.serializeToBson,
+            "compilerVersionId": pending.compilerVersionId.serializeToBson
+        ]).empty;
+        if (done) {
+            _db.compilerVersions(machineName).update(
+                ["_id": pending.compilerVersionId],
+                ["$set": ["completed": true]]
+            );
         }
     }
 
@@ -384,11 +400,6 @@ private:
         return res.deserializeBson!(db.BenchmarkBundle);
     }
 
-    db.PendingBenchmark pendingBenchmarkById(string machineName, BsonObjectID pendingId) {
-        return _db.pendingBenchmarks(machineName).findOne(
-            ["_id": pendingId]).deserializeBson!(db.PendingBenchmark);
-    }
-
     void registerVersionedArtifact(string name, ArtifactType type,
         db.SourceType sourceType, Bson sourceConfig
     ) {
@@ -423,32 +434,6 @@ private:
         _db.machines.update(["name": machineName], updateSpec);
 
         return makeCompilerInfo(artifact, compiler, versionIds);
-    }
-
-    void markPendingBenchmarkFinished(string machineName, string taskId) {
-        auto id = BsonObjectID.fromString(taskId);
-        auto pending = _db.pendingBenchmarks(machineName);
-
-        auto cmd = Bson.emptyObject;
-        cmd["findAndModify"] = Bson(pending.name);
-        cmd["query"] = serializeToBson(["_id": id]);
-        cmd["remove"] = serializeToBson(true);
-        cmd["fields"] = serializeToBson(["compilerVersionId": 1]);
-
-        auto ret = _db.runCommand(cmd);
-        if (!ret.ok.get!double) throw new Exception("findAndModify failed.");
-        auto compilerVersionId = ret.value["compilerVersionId"].get!BsonObjectID;
-        auto done = pending.find([
-            "attempted": serializeToBson(false),
-            "compilerVersionId": serializeToBson(compilerVersionId)
-        ]).empty;
-        if (done) markCompilerVersionCompleted(machineName, compilerVersionId);
-    }
-
-    void markCompilerVersionCompleted(string machineName, BsonObjectID compilerVersionId) {
-        auto updateSpec = ["$set": (["completed": true])];
-        _db.compilerVersions(machineName).
-            update(["_id": compilerVersionId], updateSpec);
     }
 
     void runUpdateVersionedArtifactsTask() {
